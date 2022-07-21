@@ -11,7 +11,7 @@ function [distance, boundaryOnObs,boundaryOnMass ] = find_massDistance(massCente
 % boundaryOnMass：最短距离对应的重物上的点
 % --------------------------------------
 % created by MLY 
-% 
+
 % obs = 35;%第一个障碍物序号为35
 
 
@@ -45,6 +45,7 @@ nearest2 = 10000;
 %选出重物8个角中离障碍物质心最近的一个点,重物上距离障碍物最近的点所在的平面一定过该点
 for i = 1:8
     len = norm(obsCenter - massPoint(:,i));
+%     len =  find_pointToObsDistance(massPoint(:,i),obsCenter,obsSize);
     if len < nearest
         nearest = len;
         nearestPoint = massPoint(:,i);
@@ -55,7 +56,7 @@ for i = 1:8
         nearest2Num = i;
     end
 end
-disp('pa');
+
 %取最近角点沿三个边各移动0.5cm的点，判断这三个点到障碍物的最短距离，选出较短的两个。
 %最终要求的最近点即在选出的较短的两个点对应的两条边所在的平面上。
 switch nearestNum
@@ -240,9 +241,9 @@ end
 %遍历得到的平面 找到最近的点
 distance = 1000;
 testP =  [ ];
-for i = 1:20
-    for j = 1:20
-        testP = nearestPoint + i/20*searchVec1 + j/20*searchVec2;
+for ii = 1:20
+    for jj = 1:20
+        testP = nearestPoint + (ii-1)/20*searchVec1 + (jj-1)/20*searchVec2;
         [obsPoint,testDis] = find_pointToObsDistance(testP,obsCenter,obsSize);
         if testDis < distance
             distance = testDis;

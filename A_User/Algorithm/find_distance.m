@@ -7,15 +7,16 @@ x=position(1);
 y=position(2);
 z=position(3);
 center=cell2mat(myspace(obs,3));
-if obs <=66
-    center(3)=center(3)-0.05;
-else
-    center(3)=center(3)+0.05;
-end
+% if obs <=66
+%     
+%     center=center-0.1;
+% else
+%     center=center+0.1;
+% end
 
 size=cell2mat(myspace(obs,2));
-size(1)=size(1)/5;
-size(2)=size(2)/5;
+size(1)=size(1)/3;
+size(2)=size(2)/3;
 
 expand=0.1;
 
