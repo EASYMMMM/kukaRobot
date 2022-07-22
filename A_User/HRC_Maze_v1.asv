@@ -162,31 +162,14 @@ end     %定义一些存储数据的变量
 %% Start direct servo in joint space       
 iiwa.realTime_startVelControlJoints();
 
-%% Initiate Contorl Parameters
+%% Initiate Contorl variables 
 %导纳参数
-%高导纳参数
-k_cartesian_high = diag([100,100,100]*1*1)*1.3*5*2/2;
-b_cartesian_high = diag([100,100,100]*2.5);
-H_inv_high          = diag([1 1 1]/10/5/1.4*3) ; 
-
-%低导纳参数
-k_cartesian_low = diag([100,100,100])*3;  
-b_cartesian_low = diag([100,100,100]*1.0);
-H_inv_low          = diag([1 1 1]/10/5*3)   ;
-
-k_cartesian = k_cartesian_high
-b_cartesian = b_cartesian_high
-H_inv          = H_inv_high 
-
-% k_cartesian = k_cartesian_low
-% b_cartesian = b_cartesian_low
-% H_inv          = H_inv_low 
-
+k_cartesian = diag([100,100,100]*1*1)*1.3*5;
+b_cartesian = diag([100,100,100]*14*0.707*45/1000*0.7*10/2*2.5);   
+H_inv = diag([1 1 1]/10/5*2);
 eefErrorLast      = [0 ; 0 ; 0];
 eefdErrorLast    = [0 ; 0 ; 0];
 eefddErrorLast  = [0 ; 0 ; 0];
-qd_control = zeros(7,1);
-KP = 0; %比例控制系数
 
 w_n=(k_cartesian.*H_inv)^0.5;
 w_n=w_n(1,1)
@@ -215,10 +198,8 @@ go=0;
 %% Define some variables
 all_v_cartesian_target=[];all_v_cartesian=[];alldt=[];all_contact_force_after=[];
 all_target_joint_position_e=[];
-All_v=[];EX_force_ori=[];all_F_contact=[];
-joint_exTor=[{0} {0} {0} {0} {0} {0} {0}];
-all_f_attractor=[];all_end_effector_p=[];
-robot_type=1;  all_jpos=[]; all_jtor=[];joint_torque=[0 0 0 0 0 0 0];F_contact=0;all_joint_pos=[];all_target_end_effector_p=[];
+All_v=[];EX_force_ori=[];all_F_contact=[];my_t=[{0} {0} {0} {0} {0} {0} {0}];all_f_attractor=[];all_end_effector_p=[];
+robot_type=1;  all_jpos=[]; all_jtor=[];my_torque=[0 0 0 0 0 0 0];F_contact=0;all_joint_pos=[];all_target_end_effector_p=[];
 all_dt_real=[];
 
 
@@ -346,11 +327,11 @@ while OVER == 0
     %             end
 
 
-    %      [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-    %      if flag == 1  
-    %          eul=imu3_data(13:15)*pi/180;
-    %      end
-    %      all_eul=[all_eul; eul;];
+%      [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
+%      if flag == 1  
+%          eul=imu3_data(13:15)*pi/180;
+%      end
+%      all_eul=[all_eul; eul;];
  
     % ==================== CONTROL =======================   
     if i == 1
@@ -423,11 +404,10 @@ while OVER == 0
     [eefT, Jac ] = iiwa.gen_DirectKinematics(this_jpos);
     J_dx_dq = Jac(1:3,:);
         
-    joint_torque=cell2mat(joint_exTor).';
-    new_torque=[new_torque; cell2mat(joint_exTor);];
+    my_torque=cell2mat(my_t).';
+    new_torque=[new_torque; cell2mat(my_t);];
 
-    %     F_contact=1*pinv(J_dx_dq.')*joint_torque;
-    F_contact = J_dx_dq * joint_torque;
+    F_contact=1*pinv(J_dx_dq.')*my_torque;
     all_F_contact=[all_F_contact F_contact];       %%!!! ''
 
     % 对外力进行滤波
@@ -435,8 +415,8 @@ while OVER == 0
     F_filtered2 = kalmany(F_contact(2));
     F_filtered3 = kalmanz(F_contact(3));  
   
-    F_afterfilter=[F_filtered1 F_filtered2 F_filtered3].';
-    new_f=[new_f F_afterfilter];
+    F_filt=[F_filtered1 F_filtered2 F_filtered3].';
+    new_f=[new_f F_filt];
 
     [ T, nsparam, rconf, jout ] = ForwardKinematics( this_jpos, robot_type );
     end_effector_p = T(1:3,4);
@@ -492,8 +472,8 @@ while OVER == 0
     target_v3=points_dot3(:,this_point_after);
 
     
-    target_jposd = J_pinv * points_dot3(:,this_point_after) + joint_tor_obs;  %【斥力】+【参考轨迹】 -->> 【目标关节速度】
-    eefTargetd = J*target_jposd ;  %当前笛卡尔目标速度
+    qd_dot = J_pinv * points_dot3(:,this_point_after) + joint_tor_obs;  %斥力+参考轨迹 --》关节速度
+    eefTargetd = J*qd_dot ;  %当前笛卡尔目标速度
     eefTarget   = eefTarget + eefTargetd * Ts; %当前笛卡尔目标位置
     
     %qd_dot = J_pinv * points_dot3(:,i) + (eye(7)-J_pinv*J)*q0_dot;
@@ -508,17 +488,17 @@ while OVER == 0
     %     all_v_control=[all_v_control v_control]; 
 
     [qd_control , eefError , eefdError , eefddError  ] = admittanceController(eefErrorLast,  eefdErrorLast ,  eefddErrorLast  ...
-                  ,F_afterfilter ,iiwa,dt , eefTarget  , eefTargetd , this_jpos ,k_cartesian, b_cartesian, H_inv, KP);
-    eefErrorLast     = eefError;
-    eefdErrorLast   = eefdError;
-    eefddErrorLast = eefddError;
-    target_jpos       = target_jpos+qd_control *dt;
+                   ,dt , eefTarget  , eefTargetd , this_jpos ,k_cartesian, b_cartesian, H_inv, KP);
+    eefErrorLast = eefError;
+    eefdErrorLast = eefdError;
+    eefddErrorLast =eefddError;
+
     
 %     fuck=J_pinv * points_dot3(:,i_theta);
          
 
 %=============== SAFE  限幅======================
-    future_pos_7=target_jpos;
+    future_pos_7=target_jpos+qd_control *dt;
     for each_joint = 1:7
         if (future_pos_7(each_joint) <= qmin(each_joint)) || (future_pos_7(each_joint) >= qmax(each_joint))
             disp('ERROR ! range is out of limit')
@@ -534,12 +514,11 @@ while OVER == 0
     end
 
 
-    %     feedback_joint_velocity_after=qd_control;
-    %      feedback_joint_velocity_after=[0 0 0 0 0 0 0].';
-    %     this_zukang=num2cell(feedback_joint_velocity_after);
-    
+    feedback_joint_velocity_after=qd_control;
+%     feedback_joint_velocity_after=[0 0 0 0 0 0 0].';
+    this_zukang=num2cell(feedback_joint_velocity_after);
 
-    joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(qd_control)); %输出关节速度
+    my_t=iiwa.sendJointsVelocitiesExTorques(this_zukang);
     
     t0=toc;
     dt_real=-start+t0;

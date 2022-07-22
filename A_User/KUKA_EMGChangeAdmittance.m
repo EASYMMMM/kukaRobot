@@ -1,7 +1,7 @@
 %% KUKA EMG change admiitance test
 % KUKA + EMG
 % 尝试通过肌电信号来改变导纳参数
-% KUKA 为 拖动模式
+% KUKA 为 【拖动模式】
 % 2022年7月7日
 % Create by mly
 

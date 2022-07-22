@@ -1,5 +1,5 @@
 function [q,R,series_state via_points which_state space cartis_obs OBSTACLE]= RL2m3m3_maze_big(where_robot_3,last_space,CHANGE,lastq,lastR,num_obs,slope_IMU,OBSTACLE, cartis_obs)
-% 找出路径最优解
+% 根据当前地图和当前位置，找出路径最优解
 % ------------ parameters: --------------------
 % where_robot_3: 机器人末端位置 3*1
 % last_space： 先前初始化好的空间  （myspace)
