@@ -3,7 +3,9 @@
 %   版本：v1
 %           机器人空载，不摆放障碍物，测试底层避障算法
 %           IMU,EMG均未开启
-%   最后更改：2022年7月21日
+%           能够按预设轨迹运动到终点
+%           添加了导纳控制器
+%   最后更改：日期
 
 %%
 close all;
@@ -329,9 +331,9 @@ while OVER == 0
     all_q=[];
     round_over=0;accum_dt=0;diminish=0;delete_point=1;accu_point=1;
 
-% #########################################################################
-% ######################### 底层循环 完成三个路径点 #############################
-% #########################################################################
+    % #########################################################################
+    % ######################### 底层循环 完成三个路径点 #############################
+    % #########################################################################
     for i=1:size(points_dot3,2)*2  
     %             if  t_server_self.BytesAvailable>0
     %                     data_recv_self = fread(t_server_self,t_server_self.BytesAvailable/8,'double');%    disp(size(data_recv));
@@ -417,9 +419,9 @@ while OVER == 0
      all_real_point=[all_real_point real_point]; 
      all_this_point=[all_this_point this_point];
      all_this_point_after=[all_this_point_after this_point_after];
-% ============= caculate external force ===========
+    % ============= caculate external force ===========
 
-%     [Jac,A_mat_products] = Jacobian(this_jpos,robot_type);
+    %     [Jac,A_mat_products] = Jacobian(this_jpos,robot_type);
     [eefT, Jac ] = iiwa.gen_DirectKinematics(this_jpos);
     J_dx_dq = Jac(1:3,:);
         
@@ -442,7 +444,7 @@ while OVER == 0
     end_effector_p = T(1:3,4);
 
 
-%============= real time interaction ================
+    %============= real time interaction ================
 
     all_end_effector_p=[all_end_effector_p end_effector_p];
     R_etow=T(1:3,1:3);            % 末端执行器到world
@@ -496,7 +498,7 @@ while OVER == 0
     eefTargetd = J*target_jposd ;  %当前笛卡尔目标速度
     eefTarget   = eefTarget + eefTargetd * Ts; %当前笛卡尔目标位置
     
-    %qd_dot = J_pinv * points_dot3(:,i) + (eye(7)-J_pinv*J)*q0_dot;
+    %     qd_dot = J_pinv * points_dot3(:,i) + (eye(7)-J_pinv*J)*q0_dot;
     %     q_init = q_init + qd_dot*Ts;      % 更新当前目标位置    %Euler integration 
     %     all_q_init=[all_q_init q_init];
     %     q_err = q_init - q;                    
@@ -507,29 +509,40 @@ while OVER == 0
     %     v_control=J67*q_control_dot;
     %     all_v_control=[all_v_control v_control]; 
 
+    % ===================== Admittance controller ========================
+    t0=toc;
+    dt_real=-start+t0;
+    start=t0;
+    all_toc=[all_toc t0];
+
+    
     [qd_control , eefError , eefdError , eefddError  ] = admittanceController(eefErrorLast,  eefdErrorLast ,  eefddErrorLast  ...
-                  ,F_afterfilter ,iiwa,dt , eefTarget  , eefTargetd , this_jpos ,k_cartesian, b_cartesian, H_inv, KP);
+                  ,F_afterfilter ,iiwa,dt_real , eefTarget  , eefTargetd , this_jpos ,k_cartesian, b_cartesian, H_inv);
     eefErrorLast     = eefError;
     eefdErrorLast   = eefdError;
     eefddErrorLast = eefddError;
     target_jpos       = target_jpos+qd_control *dt;
     
-%     fuck=J_pinv * points_dot3(:,i_theta);
+	%  fuck=J_pinv * points_dot3(:,i_theta);
          
 
-%=============== SAFE  限幅======================
+    %=============== SAFE  限幅======================
     future_pos_7=target_jpos;
     for each_joint = 1:7
         if (future_pos_7(each_joint) <= qmin(each_joint)) || (future_pos_7(each_joint) >= qmax(each_joint))
             disp('ERROR ! range is out of limit')
             v_control(each_joint)=0;
             OVER=1;
+            stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
+            joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动
         end
     end
     future_pos_3=end_effector_p+J_dx_dq*qd_control*dt;
     if future_pos_3(3)<0.05
         disp('ERROR ! range is out of limit')
         OVER=1;
+        stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
+        joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动
         break
     end
 
@@ -540,22 +553,17 @@ while OVER == 0
     
 
     joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(qd_control)); %输出关节速度
+
     
-    t0=toc;
-    dt_real=-start+t0;
-    start=t0;
-    all_toc=[all_toc t0];
-
-
     if round_over == 1
         disp('round_over')
-%         OVER=1;
+    % OVER=1;
         break
     end
-  end
-% #########################################################################
-% ############################ 底层循环 END ##################################
-% #########################################################################
+    end
+    % #########################################################################
+    % ############################ 底层循环 END ##################################
+    % #########################################################################
 end
 
 %% turn off server

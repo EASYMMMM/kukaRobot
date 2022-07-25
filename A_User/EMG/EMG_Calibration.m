@@ -116,7 +116,7 @@ fprintf(commObject, sprintf(['START\r\n\r']));
 %% Parameter setting
 % ==================================================================
 %==================================================================
-savePath = 'C:\MMMLY\KST-Kuka-Sunrise-Toolbox-master\KST-Kuka-Sunrise-Toolbox-master\Matlab_client\A_User\Data\EMG';
+savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\EMG\EMG_Calibration_Data';
 subjectName = 'mly';   %被试姓名
 testNum = '1';             %测试序号
 fileName = [savePath,'\EMG_Calibration_',date,'_',subjectName,'_',testNum];

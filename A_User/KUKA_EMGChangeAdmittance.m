@@ -215,7 +215,7 @@ while (1)
             musclePowerAll = [musclePowerAll ; musclePower];
             
             powerThreshold = 0.4; %肌肉收缩阈值
-%             P = find( EMG_AllData(pointerL:pointerR, EMG_used) >  powerThreshold);
+            %P = find( EMG_AllData(pointerL:pointerR, EMG_used) >  powerThreshold);
             if musclePower > powerThreshold %肌肉收缩
                 k_cartesian = k_cartesian_high;  %高导纳参数
                 b_cartesian = b_cartesian_high;  %高导纳参数
