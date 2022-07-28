@@ -1,3 +1,3 @@
 # gitignore
 # 各种GIF动图
-/A_User/GIF/
+GIF/
