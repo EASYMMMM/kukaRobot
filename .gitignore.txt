@@ -1,3 +1,0 @@
-# gitignore
-# 各种GIF动图
-GIF/
