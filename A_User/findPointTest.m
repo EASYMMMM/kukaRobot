@@ -7,8 +7,8 @@ obsCenter=cell2mat(myspace(obs,3))';
 obsSize = cell2mat(myspace(obs,2))';
 timeConsump = [ ];
 
-GIFpath = 'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\obsDistanceCalculate';
-GIFname = [ GIFpath , '\massDistance_','v2','.gif'];
+GIFpath = 'C:\MMMLY\GIF\obsDistanceCalculate';
+GIFname = [ GIFpath , '\massDistance_','v3','.gif'];
 figure_i = 1;
  for loop = 1:200
 pause(0.01)
@@ -82,6 +82,7 @@ point = [boundaryOnObs boundaryOnMass];
  plot3(point(1,:),point(2,:),point(3,:),'g','Linewidth',2);
 hold off
 
+view(0,90)
 frame=getframe(gcf);
 imind=frame2im(frame);
 [imind,cm] = rgb2ind(imind,256);

@@ -24,7 +24,8 @@ function [q,R,series_state via_points which_state space cartis_obs OBSTACLE]= RL
 % 
 % 231 0代表down开局
 
-target=10;
+    
+target=10;  %最终目标点
 
 
 if CHANGE == 0
@@ -141,6 +142,7 @@ if CHANGE == 0
         
         R(target-1,target)=R_goal;R(target+1,target)=R_goal;R(target+66,target)=R_goal;R(target+66*2,target)=R_goal;
         R(target+66*3,target)=R_goal;R(target+11,target)=R_goal;
+        
         %OBSTALE 包含了 1~264, 是根据feasibility来的
             for obs0 = 1:length(OBSTALE)  % layer 1 2
                 obs=OBSTALE(obs0);
@@ -159,9 +161,8 @@ if CHANGE == 0
                    end
 
                         OBSTACLE=[OBSTACLE obs+1 obs+1+66*2];                   
-
-                end
-                if mod(obs,11)==10
+               end
+               if mod(obs,11)==10
                    for i=1:66*4    
                        R(i,obs-1)=-inf;
                    end
@@ -173,8 +174,8 @@ if CHANGE == 0
 %                    else
 %                        OBSTACLE=[OBSTACLE obs-1+66*2];   
 %                    end
-                end              
-                if  (fix(obs/11)+1==5 || fix(obs/11)+1==11 || fix(obs/11)+1==6 || fix(obs/11)+1==12)
+               end              
+               if  (fix(obs/11)+1==5 || fix(obs/11)+1==11 || fix(obs/11)+1==6 || fix(obs/11)+1==12)
                    for i=1:66*4    
                        R(i,obs-11)=-inf;
                    end
@@ -184,7 +185,7 @@ if CHANGE == 0
 
                         OBSTACLE=[OBSTACLE obs-11 obs-11+66*2];                   
 
-                end                  
+               end                  
             end
 
 
