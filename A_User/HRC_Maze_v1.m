@@ -41,7 +41,7 @@ addpath('C:\Lin YANG\from me\Motion-Planning-for-KUKA-LBR-main-oriiii2\Motion-Pl
 
 
 %% High level initialization
-MAZE_CHANGE=0;  %地图没发生变化  初始地图
+MAZE_CHANGE=0;  % 初始地图
 eefInitPosition=[-0.125 -0.675 0.2]';  %机器人初始点
 % q： 训练好的Q表  264*264  地图引导   行：当前位置  列：下一步位置    数值代表趋向程度，0不能走     
 % R：Reward表 264*264 走一步扣一分 到终点奖励100分，不可达的为负无穷

@@ -10,7 +10,6 @@ clear;
 clc;
 warning('off')
 
-
 %% Create the robot object
 ip='172.31.1.147'; % The IP of the controller
 arg1=KST.LBR14R820; % choose the robot iiwa7R800 or iiwa14R820
@@ -30,18 +29,12 @@ pause(1);
 
 
 %% 连接EMG
-t_server_EMG=tcpip('0.0.0.0',30000,'NetworkRole','server');%与第一个请求连接的客户机建立连接，端口号为30000，类型为服务器。
-t_server_EMG.InputBuffersize=100000;
-disp(['正在连接EMG数据发送端...请开启另一个MATLAB',datestr(now)])
-fopen(t_server_EMG);%打开服务器，直到建立一个TCP连接才返回；
-disp(['成功连接EMG数据发送端！',datestr(now)])
-pause(2)
-while 1
-  if  t_server_EMG.BytesAvailable>0
-      break
-  end
+[t_server_EMG, EMG_flag ] = EMG_Connect( );
+EMG_flag = 0;
+if ~EMG_flag
+    return
 end
-disp('成功接收EMG数据！');
+
 EMG_dataAll = [ ]; 
 pointerL = 1; %滑动指针
 pointerR = 1;
