@@ -24,6 +24,8 @@ function [t_server_EMG, flag ] = EMG_Connect( )
           disp('EMG数据接收异常');   
            flag = 0;
            return
-    end
+      end
     disp('成功接收EMG数据！');
+    return
+    end
     

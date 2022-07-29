@@ -3,14 +3,16 @@
 %   若数据接收失败，所有的返回值都将为0
 %   ======== parameters ==========
 %    t_server_EMG: EMG通信TCPIP句柄
+%    powerThreshold: 判断肌肉是否收缩的阈值
 %    EMG_NUM: 总共使用的EMG传感器个数
 %   ==========================
 %   ======== returns =============
 %    EMG_thisFrame: 最新一帧数据
 %    musclePower: 肌肉收缩强度
+%    admittanceLow: 是否改用低导纳参数
 %    flag: 是否成功接收数据，若失败，所有返回值都为0
 %   ===========================
-function [ EMG_thisFrame,  musclePower  , flag] = EMG_ReadOneFrame( t_server_EMG ,EMG_NUM)
+function [ EMG_thisFrame,  musclePower , admittanceLow , flag] = EMG_ReadOneFrame( t_server_EMG , powerThreshold ,EMG_NUM)
 
 flag = 1;
 if  t_server_EMG.BytesAvailable>0

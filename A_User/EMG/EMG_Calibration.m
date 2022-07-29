@@ -1,15 +1,27 @@
 %% EMG Calibration
 % EMG信号的标定 归一化
 % 记录各个肌肉部位的EMG静息值和最大值，用于归一化处理 
-% modified by MLY  2022年7月13日
-% 共采用7个EMG
-%小臂外侧肌肉  1号
-%小臂内侧肌肉  2号
-%肱三头肌         8号
-%肱二头肌         4号
-%三角肌前束      5号
-%三角肌中束      6号
-%三角肌后束      11号
+% ========== 使用说明 ============
+% 1.先更改保存路径（被试姓名，实验序号）
+% 2.到对应文件夹复制路径，添加在需要使用EMG归一化数据的文件中
+% 3.一键启动
+%   保持手臂弯曲，大臂和小臂约呈120度。手中可以握一个矿泉水瓶以便发力。
+%   先保持手臂放松，5秒
+%   随后（命令行会有提示），全力握紧水瓶（感受到小臂，大臂均在发力），保持10秒。
+%   放松5秒。此时先将手背放到桌子下面。
+%   用手背用力向上顶桌子，感受到肩部发力，保持10秒。
+%   结束
+% ========== EMG序号 ============
+%   共采用7个EMG
+%   小臂外侧肌肉  1号
+%   小臂内侧肌肉  2号
+%   肱三头肌         8号
+%   肱二头肌         4号
+%   三角肌前束      5号
+%   三角肌中束      6号
+%   三角肌后束      11号
+% =============================
+% modified by mmm
 
 clear
 clc
@@ -19,6 +31,43 @@ clc
 HOST_IP = '172.31.75.32';  %本机IP  （连接kuka的IP地址，运行此程序时需连接kuka并保持kuka开启）
 
 
+
+%% Parameter setting
+% ==================================================================
+%==================================================================
+% 保存路径
+savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\EMG\EMG_Calibration_Data';
+subjectName = 'mly';   %被试姓名
+testNum = '1';             %实验测试序号
+fileName = [savePath,'\EMG_Calibration_',date,'_',subjectName,'_',testNum];
+% ==================================================================
+% ==================================================================
+
+
+EMGSTDdata_all=[ ];
+
+global data_new   %接收新的数据
+data_new = [ ];
+
+EMGdata_all=ones(300000,7); %EMG7个通道的全部数据
+from_EMG=1;
+to_EMG=0;
+count_i=0;      %循环计数
+StablePart=5000;  %静息值部分 
+ArmPart=10000;   %肌肉峰值测量部分
+RelaxPart = 12500;%放松
+ShoulderPart = 17500;%肩部峰值测量部分
+maxSTD=zeros(1,7);
+
+EMG_foreArmOutside = 1;  %小臂外侧肌肉
+EMG_foreArmInside = 2;     %小臂内侧肌肉
+EMG_TB = 3; %肱三头肌
+EMG_BB = 4; %肱二头肌
+EMG_DMF = 5; %三角肌前束
+EMG_DMM = 6;%三角肌中束
+EMG_DMB  = 7;%三角肌后束
+
+EMG_channelLabel = {'小臂外侧','小臂内侧','肱三头肌','肱二头肌','三角肌前束','三角肌中束','三角肌后束'};
 
 %% Create the required objects
 
@@ -111,43 +160,6 @@ end
 %% Send the commands to start data streaming
 fprintf(commObject, sprintf(['START\r\n\r']));
 
-
-
-%% Parameter setting
-% ==================================================================
-%==================================================================
-savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\EMG\EMG_Calibration_Data';
-subjectName = 'mly';   %被试姓名
-testNum = '1';             %测试序号
-fileName = [savePath,'\EMG_Calibration_',date,'_',subjectName,'_',testNum];
-% ==================================================================
-% ==================================================================
-
-
-EMGSTDdata_all=[ ];
-
-global data_new   %接收新的数据
-data_new = [ ];
-
-EMGdata_all=ones(300000,7); %EMG7个通道的全部数据
-from_EMG=1;
-to_EMG=0;
-count_i=0;      %循环计数
-StablePart=5000;  %静息值部分 
-ArmPart=10000;   %肌肉峰值测量部分
-RelaxPart = 12500;%放松
-ShoulderPart = 17500;%肩部峰值测量部分
-maxSTD=zeros(1,7);
-
-EMG_foreArmOutside = 1;  %小臂外侧肌肉
-EMG_foreArmInside = 2;     %小臂内侧肌肉
-EMG_TB = 3; %肱三头肌
-EMG_BB = 4; %肱二头肌
-EMG_DMF = 5; %三角肌前束
-EMG_DMM = 6;%三角肌中束
-EMG_DMB  = 7;%三角肌后束
-
-EMG_channelLabel = {'小臂外侧','小臂内侧','肱三头肌','肱二头肌','三角肌前束','三角肌中束','三角肌后束'};
 
 %% Calibration  
 

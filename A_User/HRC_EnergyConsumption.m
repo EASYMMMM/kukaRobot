@@ -9,6 +9,15 @@ clear;
 clc;
 warning('off')
 
+%% Save path 存储路径 每次实验前更改！
+% ##############################################################
+% ##############################################################
+tester = 'mly';  % 更改：测试者
+testNum = '2'; % 更改：测试编号
+savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\Data\EnergyConsumption\';
+fileName = [savePath,'EnergyCost_',date,'_',tester,'_',testNum];
+% ##############################################################
+% ##############################################################
 %% Create the robot object
 ip='172.31.1.147'; % The IP of the controller
 arg1=KST.LBR14R820; % choose the robot iiwa7R800 or iiwa14R820
@@ -29,22 +38,16 @@ pause(1);
 addpath('C:\Lin YANG\from me\Motion-Planning-for-KUKA-LBR-main-oriiii2\Motion-Planning-for-KUKA-LBR-main-raw')  
 
 %% 连接EMG
-t_server_EMG=tcpip('0.0.0.0',30000,'NetworkRole','server');%与第一个请求连接的客户机建立连接，端口号为30000，类型为服务器。
-t_server_EMG.InputBuffersize=100000;
-disp(['正在连接EMG数据发送端...请开启另一个MATLAB',datestr(now)])
-fopen(t_server_EMG);%打开服务器，直到建立一个TCP连接才返回；
-disp(['成功连接EMG数据发送端！',datestr(now)])
-pause(2)
-while 1
-  if  t_server_EMG.BytesAvailable>0
-      break
-  end
+[t_server_EMG, EMG_flag ] = EMG_Connect( );
+if ~EMG_flag
+    return
 end
-disp('成功接收EMG数据！');
-EMG_dataAll = [ ]; 
+
+EMG_NUM = 7;
+ALL_EMG_data = [ ]; 
 pointerL = 1; %滑动指针
 pointerR = 1;
-EMG_used = 8; %使用的EMG传感器
+% EMG_used = 8; %使用的EMG传感器
 
 
  
@@ -58,7 +61,7 @@ last_q=lastq;
 last_R=lastR;
 
 obsCenter  = cell2mat( myspace(cartis_obs(2) , 3))' ;
-obsSize = cell2mat( myspace(cartis_obs(2) , 2))' ;
+obsSize = cell2mat( myspace(cartis_obs(2) , 2))' /2;
 
 %路径点 设计路径为跨过第二个障碍物，再原路返回
 waypoint(:,1) = obsCenter + [ -obsSize(1)-0.10 ; 0 ; 0 ];
@@ -78,26 +81,34 @@ timepoint = linspace(0,runTime,7);
 
 stopdq = [ 0; 0 ; 0;0;0;0;0];
 jPosdLast = stopdq;
-EMG_dataAll = [ ]; %记录全部的EMG数据
-musclePowerAll = [ ]; %记录全部的7通道EMG综合数据
+ALL_EMG_data = [ ]; %记录全部的EMG数据
+ALL_musclePower = [ 0 ]; %记录全部的7通道EMG综合数据
 
 %% Go to initial configuration 
 
+xd=waypoint(1,1);
+yd=waypoint(2,1);
+zd=waypoint(3,1);
+init_theta1=180;
+init_theta2=0;
+[inv_jpos] = inverse_with_gesture(xd,yd,zd,init_theta1,init_theta2).';
+init_jpos = inv_jpos(:,2)*pi/180;
+
 relVel=0.25; % over ride relative joint velocities
 
-%pos={0, -pi / 180 * 10, 0, -pi / 180 * 100, pi / 180 * 90,pi / 180 * 90, 0};   % initial cofiguration
+iiwa.movePTPJointSpace( num2cell(init_jpos), relVel); % go to initial position
 
-pos={0., pi / 180 * 30, 0, -pi / 180 * 60, 0,pi / 180 * 90, 0};
-iiwa.movePTPJointSpace( pos, relVel); % go to initial position
-pause(2)
-disp('初始');
+disp(' =====================');
+disp('             已到达初始位置                ');
+disp(' =====================');
 init_eefCartPos = iiwa.getEEFCartesianPosition();     %初始末端坐标
 
 
-[eef_T, eef_jacobian ] = iiwa.gen_DirectKinematics(cell2mat(pos));  %正运动学求解
-init_eef_cart = eef_T(1:3,4)   %末端执行器笛卡尔坐标
+[eef_T, eef_jacobian ] = iiwa.gen_DirectKinematics(init_jpos);  %正运动学求解
+init_eef_cart = eef_T(1:3,4) ;  %末端执行器笛卡尔坐标
 
-iiwa.setBlueOn()
+
+
 
 %% Start direct servo in joint space       
 iiwa.realTime_startVelControlJoints();
@@ -119,9 +130,9 @@ k_cartesian_low = diag([100,100,100])*3;
 b_cartesian_low = diag([100,100,100]*1.0);
 H_inv_low          = diag([1 1 1]/10/5*3)   ;
 
-k_cartesian = k_cartesian_high
-b_cartesian = b_cartesian_high
-H_inv          = H_inv_high 
+k_cartesian = k_cartesian_high;
+b_cartesian = b_cartesian_high;
+H_inv          = H_inv_high ;
 
 eefErrorLast = [0;0;0];  %上一周期的偏差
 eefdErrorLast = [0;0;0];
@@ -129,99 +140,143 @@ eefddErrorLast = [0;0;0];
 KP = 0;
 
 %% Data store
-
+ALL_ExTor= [ ];
+ALL_ExEEFForce = [ ];
 
 %% Main Loop
+% 循环三次
+% 第一次保持重物抬高
+% 第二次保持重物水平
+% 第三次保持重物放低
+text ={ '请抬高重物' , '请放平重物' , '请放低重物' };
 
-disp('开始');
-a=datevec(now);
-timeOrigin=a(6)+a(5)*60+a(4)*60*60; %初始时间戳
-tic
-while (1)
+for Loop = 1:3  %外层循环 循环3次
     
-    timeNow = toc   %当前时间戳
-    if ~(timeNow > timeVec(i))
-        continue
+    t = 5;
+    for j = 1:5
+        disp([text{Loop} ,'，',num2str(t),'秒后开始测量']);
+        t = t-1;
+        pause(1);
+    end
+    disp(' =====================');
+    disp(['   开始测量，',text{Loop} ]);
+    disp(' =====================');
+    
+    i= 1;
+    totalMusclePower = 0;
+    tic%初始时间戳
+    while (1)  %内层循环 完成跨越障碍的运动
+        timeNow = toc;   %当前时间戳
+        if ~(timeNow > timeVec(i))
+            continue
+        end
+
+        jPos = iiwa.getJointsPos();                              %读取角度
+        [eefT, eefJacobian ] = iiwa.gen_DirectKinematics(cell2mat(jPos));
+        eefCartNow = eefT(1:3,4);  %当前末端位置
+    %     ALL_EEFCartBias = [ ALL_EEFCartBias (eefCartNow-eefTarget(:,i))*100];
+        ExTor = cell2mat( iiwa.sendJointsVelocitiesExTorques(num2cell(jPosdLast))  );  %关节力矩
+        ALL_ExTor = [ ALL_ExTor ExTor' ];
+        JVel = eefJacobian(1:3,:);        %速度雅各比
+    %    jPosd = pinv(JVel) * eefTargetd(:,i);  %末端笛卡尔速度*雅各比矩阵 --> 关节速度
+
+        ExEEFForce = JVel * ExTor' ;    %末端力
+        ALL_ExEEFForce = [ALL_ExEEFForce ExEEFForce];
+
+     %   ExTor = iiwa.sendJointsVelocitiesExTorques( num2cell(stopdq) );    %输出
+
+        %=====================  导纳控制器  ============================
+
+        eefddError = H_inv*(ExEEFForce - b_cartesian * eefdErrorLast - k_cartesian * eefErrorLast); %本周期 加速度偏差
+        eefdError = eefdErrorLast + (eefddError + eefddErrorLast)*timeInt/2;
+        eefError = eefErrorLast + (eefdError + eefdErrorLast)*timeInt/2;
+
+        eefTargetNew = eefTarget(:,i) + eefError;   %导纳控制器更新后的目标位置和目标速度
+        eefTargetdNew = eefTargetd(:,i) + eefdError;
+
+        ep = eefTargetNew - eefCartNow;   %当前位置与更新后的目标位置的偏差
+        controlSignal = KP*ep + eefTargetdNew ; 
+         jPosd = pinv(JVel) * controlSignal;
+         jPosdLast = jPosd;
+         iiwa.sendJointsVelocities(num2cell(jPosd));  %输出关节速度
+
+         eefErrorLast = eefError;   %记录本次偏差
+         eefdErrorLast = eefdError;
+         eefddErrorLast = eefddError;
+
+         %=================== 导纳控制器 END ============================
+
+         %********************************* 接收EMG数据********************************************
+            if  t_server_EMG.BytesAvailable>0
+                [ EMG_thisFrame,  musclePower  , flag] = EMG_ReadOneFrame( t_server_EMG ,EMG_NUM);
+ 
+                ALL_EMG_data = [ALL_EMG_data ; EMG_thisFrame'];
+                ALL_musclePower = [ALL_musclePower ; musclePower];                
+                totalMusclePower = totalMusclePower + musclePower * timeInt; %对肌肉收缩强度进行积分
+            else
+                totalMusclePower = totalMusclePower + ALL_musclePower(end,1) * timeInt;
+            end 
+         %********************************* 接收EMG数据 END********************************************
+
+        i = i+1;
+        if i > totalLoop
+            break
+        end
+    end %内层循环结束
+    
+    switch Loop   %存储能耗数据
+        case 1
+            energyCostHumanHigher = totalMusclePower / runTime ; 
+        case 2
+            energyCostHorizontal      = totalMusclePower / runTime ; 
+        case 3
+            energyCostRobotHigher  = totalMusclePower / runTime ; 
     end
     
-    jPos = iiwa.getJointsPos();                              %读取角度
-    [eefT, eefJacobian ] = iiwa.gen_DirectKinematics(cell2mat(jPos));
-    eefCartNow = eefT(1:3,4);  %当前末端位置
-%     ALL_EEFCartBias = [ ALL_EEFCartBias (eefCartNow-eefTarget(:,i))*100];
-    ExTor = cell2mat( iiwa.sendJointsVelocitiesExTorques(num2cell(jPosdLast))  );  %关节力矩
-    ALL_ExTor = [ ALL_ExTor ExTor' ];
-    JVel = eefJacobian(1:3,:);        %速度雅各比
-%    jPosd = pinv(JVel) * eefTargetd(:,i);  %末端笛卡尔速度*雅各比矩阵 --> 关节速度
-    
-    ExEEFForce = JVel * ExTor'     %末端力
-    ALL_ExEEFForce = [ALL_ExEEFForce ExEEFForce];
-    
- %   ExTor = iiwa.sendJointsVelocitiesExTorques( num2cell(stopdq) );    %输出
+end %外层循环结束
 
-    %=====================  导纳控制器  ============================
-    
-    eefddError = H_inv*(ExEEFForce - b_cartesian * eefdErrorLast - k_cartesian * eefErrorLast); %本周期 加速度偏差
-    eefdError = eefdErrorLast + (eefddError + eefddErrorLast)*timeInt/2;
-    eefError = eefErrorLast + (eefdError + eefdErrorLast)*timeInt/2;
-    
-    eefTargetNew = eefTarget(:,i) + eefError;   %导纳控制器更新后的目标位置和目标速度
-    eefTargetdNew = eefTargetd(:,i) + eefdError;
-    
-    ep = eefTargetNew - eefCartNow;   %当前位置与更新后的目标位置的偏差
-    controlSignal = KP*ep + eefTargetdNew ; 
-     jPosd = pinv(JVel) * controlSignal;
-     jPosdLast = jPosd;
-     iiwa.sendJointsVelocities(num2cell(jPosd));  %输出关节速度
+ExTor = iiwa.sendJointsVelocitiesExTorques( num2cell(stopdq) );
+disp(' =====================');
+disp('                     结束                        ');
+disp(' =====================');
 
-     eefErrorLast = eefError;   %记录本次偏差
-     eefdErrorLast = eefdError;
-     eefddErrorLast = eefddError;
-     
-     %=================== 导纳控制器 END ============================
-
-%      %********************************* 接收EMG数据********************************************
-%         if  t_server_EMG.BytesAvailable>0
-%             EMG_data_recv = fread(t_server_EMG,t_server_EMG.BytesAvailable/8,'double');%  接收double类型的数据
-%             %   count_self = count_self + 1;
-%             EMG_data_head=find(88887<=EMG_data_recv);
-%             which_head2=EMG_data_head(end);
-%             EMG_thisFrame=EMG_data_recv(which_head2+1:end);  %读取最新一帧数据
-%             EMG_dataAll = [EMG_dataAll ; EMG_thisFrame'];
-%             
-%             totalPower = 0;
-%             for k = 1:EMG_NUM
-%                 totalPower = totalPower +  EMG_thisFrame(k)^2;
-%             end
-%             musclePower = sqrt(totalPower);
-%             musclePowerAll = [musclePowerAll ; musclePower];
-%             
-%             powerThreshold = 0.4; %肌肉收缩阈值
-%             %P = find( EMG_AllData(pointerL:pointerR, EMG_used) >  powerThreshold);
-%             if musclePower > powerThreshold %肌肉收缩
-%                 k_cartesian = k_cartesian_high;  %高导纳参数
-%                 b_cartesian = b_cartesian_high;  %高导纳参数
-%                 H_inv = H_inv_high;
-%                 admittanceChangeAll = [ admittanceChangeAll ; 1,i];  %EMG可能会掉帧，同时保存帧数
-%             else
-%                 k_cartesian = k_cartesian_low;   %高导纳参数
-%                 b_cartesian = b_cartesian_low;   %低导纳参数
-%                 H_inv = H_inv_low;
-%                 admittanceChangeAll = [ admittanceChangeAll ; 0,i];
-%             end
-%         end
-%         
-%      %********************************* 接收EMG数据 END********************************************
-     
-    i = i+1;
-    if i > totalLoop
-        break
-    end
-end
+end_jPos = iiwa.getJointsPos();   
+[eef_T, eef_jacobian ] = iiwa.gen_DirectKinematics(cell2mat(end_jPos));  %正运动学求解
+end_eef_cart = eef_T(1:3,4) ;  %末端执行器笛卡尔坐标
+accuracy = end_eef_cart - init_eef_cart;
 
 
+%% turn off the server
+iiwa.realTime_stopVelControlJoints();
+iiwa.net_turnOffServer();
+warning('on')
+
+disp('KUKA 连接已断开！');
 
 
+fwrite(t_server_EMG,[8886 ],'double') ; %发送数字数据
+pause(0.5)
+fclose(t_server_EMG);
+delete(t_server_EMG);
+clear t_server_EMG
+disp('EMG接收通道关闭');
 
+%% Save data
+save(fileName, 'energyCostHumanHigher','energyCostHorizontal','energyCostRobotHigher','ALL_EMG_data');
+disp('数据已存储！');
+
+%% Plot 
+
+xx = [0,1];
+figure(2)
+plot( xx, [energyCostHumanHigher energyCostHumanHigher],'r','Linewidth',2);
+hold on
+plot( xx, [energyCostHorizontal energyCostHorizontal],'b','Linewidth',2);
+plot( xx, [energyCostRobotHigher energyCostRobotHigher],'g','Linewidth',2);
+grid on
+legend('HumanHigher','Horizontal','RobotHigher');
+title('Energy consumption');
+axis([0 1 0 1])
 
 
 
