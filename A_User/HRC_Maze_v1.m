@@ -606,14 +606,18 @@ legend('1','2','3','4','5','6');
 
 
 %% Draw with maze
+
+return
+
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
-TestNum = 'v1';
-GIFname = [GIFpath,'\（无重物姿态）HRC_Maze_',TestNum];
+TestNum = 'v3';
+GIFname = [GIFpath,'\HRC_Maze_',TestNum];
 % Pmass     = [0.25;0;0]; 
 Pmass     = [0.25;0;0;]; 
 
+kukaiiwa = loadrobot("kukaiiwa14","DataFormat","column");
 
-figure(3)   
+figure(1)   
 set(gcf,'unit','normalized','position',[0.2 0.2 0.5 0.6]);
 hold on
 all_q=all_jpos';
@@ -662,6 +666,8 @@ for  ii = 1:totalLen
 %         hold on
 %     end
 
+    show(kukaiiwa, q,'Frames','off' );
+    hold on
     %下层
     centerPoint = [ 0.3750 , 0 , 0.2];
     recSize = [1.25 , 1.9500 , 0.4];
@@ -679,10 +685,10 @@ for  ii = 1:totalLen
         hold on
     end  
 
-    kuka_color = [240 153 80];    %为kuka选择喜欢的颜色
-    plot3(  joint_cart(1,1:7) ,  joint_cart(2,1:7) , joint_cart(3,1:7) ,'o-','color',kuka_color/255,'Linewidth',3);   %绘制KUKA机器人
-    hold on 
-    grid on
+%     kuka_color = [240 153 80];    %为kuka选择喜欢的颜色
+%     plot3(  joint_cart(1,1:7) ,  joint_cart(2,1:7) , joint_cart(3,1:7) ,'o-','color',kuka_color/255,'Linewidth',3);   %绘制KUKA机器人
+%     hold on 
+%     grid on
 
     metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
     plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',3);   %绘制重物
@@ -732,63 +738,69 @@ end
 
 % %% Draw 
 % figure;
-% % plot3(all_pos_table(1,:),all_pos_table(2,:),all_pos_table(3,:),'o' ); hold on;
-% % plot3(all_end_effector_p(1,:),all_end_effector_p(2,:),all_end_effector_p(3,:),'ro' ); 
-% %  xlabel("X"); ylabel('Y');  zlabel('Z');
+% 
 % all_q=all_jpos';
 % Len = size(all_q,2);
-% GIFpath   =  'C:\MMMLY\KST-Kuka-Sunrise-Toolbox-master\KST-Kuka-Sunrise-Toolbox-master\Matlab_client\A_User\GIF\KUKA-Exp';
+% GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
 %  TestNum = 'v3';
 % GIFname = [GIFpath,'\KUKA_exp_',TestNum];
-% % Pmass     = [0.25;0;0]; 
+% Pmass     = [0.25;0;0]; 
 % Pmass     = [-0.25;0;0;]; 
-% % clf
-% % for  ii = 1:Len
-% % 
-% %     T = [ ];
-% %     q=all_q(:,ii);
-% %     [T,J]=directKinematicsAboutEachJoint(q);
-% %     Rew = T(1:3,1:3,7);
-% %     joint_cart = zeros(3,7);
+% kuka = loadrobot("kukaIiwa14");
+% kukaPos = randomConfiguration(kuka);
+% clf
+% for  ii = 1:Len
+% 
+%     T = [ ];
+%     q=all_q(:,ii);
+%     [T,J]=directKinematicsAboutEachJoint(q);
+%     Rew = T(1:3,1:3,7);
+%     joint_cart = zeros(3,7);
 % %     EUL = all_eul(ii,:);
 % %     eul = [EUL(3) EUL(2) EUL(1)];
-% %     R_mass = eul2rotm(eul);
-% %     R_mass_7=R_mass*(Rew');
-% %             %重物  
-% %         Tmass = zeros(4,4);
-% %         Tmass(1:3,1:3) = R_mass_7;
-% %         Tmass(1:3,4) =  Tmass(1:3,1:3)  * Pmass + T(1:3,4,7); %重物方向沿末端执行器坐标系的x轴负方向
-% %         Tmass(4,4) = 1;
-% %         T(:,:,8) = Tmass;   
-% %           % 提取各关节点笛卡尔坐标
-% %         for i = 1:8
-% %             joint_cart( : , i ) = T(1:3,4,i); 
-% %         end
-% %          joint_cart( : , 1 ) = [0;0;0];
-% %         
-% %  
-% %         kuka_color = [240 153 80];    %为kuka选择喜欢的颜色
-% %         plot3(  joint_cart(1,1:7) ,  joint_cart(2,1:7) , joint_cart(3,1:7) ,'o-','color',kuka_color/255,'Linewidth',2);   %绘制KUKA机器人
-% %         hold on 
-% %         grid on
-% %         axis([-1.3 1.3 -1.3 1.3 -0.3 1.3]);
-% %         metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
-% %         plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',2);   %绘制重物
-% %         
-% %  
-% %         xlabel("X"); ylabel('Y');  zlabel('Z');
-% %         title("KUKA + 手臂 IMU绘图测试");
-% %         hold off
-% %     
-% %         frame= getframe(gcf);  %存储当前帧
-% %         imind=frame2im(frame);
-% %         [imind,cm] = rgb2ind(imind,256);
-% %         if ii==1
-% %           imwrite(imind,cm,[GIFname,'.gif'],'gif', 'Loopcount',inf,'DelayTime',.02);
-% %         else
-% %           imwrite(imind,cm,[GIFname,'.gif'],'gif','WriteMode','append','DelayTime',.02);
-% %         end      
-% % 
-% % end
+%     eul = [0 0 0];
+%     R_mass = eul2rotm(eul);
+%     R_mass_7=R_mass*(Rew');
+%             %重物  
+%         Tmass = zeros(4,4);
+%         Tmass(1:3,1:3) = R_mass_7;
+%         Tmass(1:3,4) =  Tmass(1:3,1:3)  * Pmass + T(1:3,4,7); %重物方向沿末端执行器坐标系的x轴负方向
+%         Tmass(4,4) = 1;
+%         T(:,:,8) = Tmass;   
+%           % 提取各关节点笛卡尔坐标
+%         for i = 1:8
+%             joint_cart( : , i ) = T(1:3,4,i); 
+%         end
+%          joint_cart( : , 1 ) = [0;0;0];
+%         
+%          for i = 1:7
+%              kukaPos(i).JointPosition = q(i);
+%          end
+%          
+%         
+%         %kuka_color = [240 153 80];    %为kuka选择喜欢的颜色
+%         %plot3(  joint_cart(1,1:7) ,  joint_cart(2,1:7) , joint_cart(3,1:7) ,'o-','color',kuka_color/255,'Linewidth',2);   %绘制KUKA机器人
+%         show(kuka,kukaPos);
+%         hold on 
+%         grid on
+%         axis([-1.3 1.3 -1.3 1.3 -0.3 1.3]);
+%         metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
+%         plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',2);   %绘制重物
+%         
+%  
+%         xlabel("X"); ylabel('Y');  zlabel('Z');
+%         title("KUKA + 手臂 IMU绘图测试");
+%         hold off
+%     
+%         frame= getframe(gcf);  %存储当前帧
+%         imind=frame2im(frame);
+%         [imind,cm] = rgb2ind(imind,256);
+%         if ii==1
+%           imwrite(imind,cm,[GIFname,'.gif'],'gif', 'Loopcount',inf,'DelayTime',.02);
+%         else
+%           imwrite(imind,cm,[GIFname,'.gif'],'gif','WriteMode','append','DelayTime',.02);
+%         end      
+% 
+end
 
 

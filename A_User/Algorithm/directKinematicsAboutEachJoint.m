@@ -20,13 +20,13 @@ function [T,J]=directKinematicsAboutEachJoint(q)
 %% DH PARAMETERS FOR THE ROBOT
 alfa={0,-pi/2,pi/2,pi/2,-pi/2,-pi/2,pi/2};
 % following are "d" parameters for iiwa 7 R 800 
-d={0.34,0.0,0.4,0.0,0.4,0.0,0.126};
+%d={0.34,0.0,0.4,0.0,0.4,0.0,0.126};
 % following are "d" parameters for iiwa 14 R 820 
-% d={0.36,0.0,0.42,0.0,0.4,0.0,0.126};
+d={0.36,0.0,0.42,0.0,0.4,0.0,0.126};
 
 % The following is for accounting for the length of the flange "Medien-Flansch Touch pneumatisch".
-d{7}=0.126+0.061; % if you have another type of flange, please refer to reference [1] above.
-
+%d{7}=0.126+0.061; % if you have another type of flange, please refer to reference [1] above.
+d{7}=0.126+0;
 a={0,0,0,0,0,0,0};
 
 %% Calculating the direct Kinematics
