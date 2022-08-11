@@ -3,6 +3,7 @@
 % 用手随意拖动至任何位置，末端姿态角未锁定
 % Create by mly
 % 2022年7月15日：取消固定控制周期  改用tic toc
+% ！如果中途停止运行，需手动执行turn off the server 部分
 
 close all;
 clear;
@@ -75,14 +76,14 @@ H_inv_high          = diag([1 1 1]/10/5/1.4*3) ;
 
 %低导纳参数
 k_cartesian_low = diag([100,100,100])*3;  
-b_cartesian_low = diag([100,100,100]*1.0);
+b_cartesian_low = diag([100,100,100]*1.5);
 H_inv_low          = diag([1 1 1]/10/5*3)   ;
 
 
 %hand guiding
 k_cartesian = diag([0,0,0]*1*1)*1.3*4
-b_cartesian = b_cartesian_high
-H_inv          = H_inv_high  
+b_cartesian = b_cartesian_low
+H_inv          = H_inv_low  
 
 eefErrorLast = [0;0;0];  %上一周期的偏差
 eefdErrorLast = [0;0;0];
@@ -181,12 +182,10 @@ end
 
 
 
+%% turn off the server 如果中途停止运行，需手动执行下面部分
+
 ExTor = iiwa.sendJointsVelocitiesExTorques( num2cell(stopdq) );
 disp('结束');
-
-
-
-%% turn off the server
 iiwa.realTime_stopVelControlJoints( );
 iiwa.net_turnOffServer( );
 warning('on')

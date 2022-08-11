@@ -5,13 +5,24 @@
 %           IMU,EMG均未开启
 %           能够按预设轨迹运动到终点
 %           添加了导纳控制器
-%   最后更改：日期
+%   最后更改：2022年8月10日 
+
 
 %%
 close all;
 clear;
 clc;
 warning('off')
+
+%% 调参 
+timex = 4; %运行时间系数
+
+Kp_joint = eye(7)*2;    %比例控制系数
+k0 =  0.00005;            %障碍物斥力系数 
+FUTURE=3;
+
+sizeCon = 1/4; %障碍物尺寸计算系数（在find_distance.m中修改）
+expand = 0.1; %障碍物尺寸计算系数（在find_distance.m中修改）
 
 %% IMU init
 
@@ -204,17 +215,22 @@ I_coe=diag([1,1,1]/1000*6);
 % gain on the orientation difference of the end effector
 k_vel_p = 50;
 % time record
-%kuka限幅 限速
+%kuka限幅 
 qmax = [170,120,170,120,170,120,175]*pi/180;
 qmin = -qmax;
-dqlimit = [110,110,128,128,204,184,184]*pi/180;
+%kuka限速
+qdlimit = [85,85,100,75,130,135,135]*pi/180 * 0.95;
 t = 0;
 
+%k0 = 0;    % 障碍物斥力场系数   
+
+    
 %代表那个大循环   
 go=0;
 
     
 %% Define some variables
+while 1
 all_v_cartesian_target=[];all_v_cartesian=[];alldt=[];all_contact_force_after=[];
 all_target_joint_position_e=[];
 All_v=[];EX_force_ori=[];all_F_contact=[];
@@ -238,7 +254,8 @@ target_jpos=init_jpos;
 accum_dt=0;high_loop=0;points_dot3=zeros(3,1);contact_force_after=zeros(3,1);
 
 MDZZ=[];all_real_point=[];all_this_point=[];all_this_point_after=[];all_eul=[];
-
+break
+end
 eefTargetd = [ 0 ; 0 ; 0];
 eefTarget   = eefInitPosition;
 dt_real=Ts;
@@ -464,9 +481,8 @@ while OVER == 0
     %  eul=0;  % wait
     
     J_pinv = pinv(J);
-    Kp_joint = eye(7)*2;    %P
-    k0 = 0;    % 障碍物斥力场系数   
-    % k0 = 0.001/2; 
+
+
     joint_tor_obs=zeros(7,1); %各个关节受到的来自障碍物的斥力
     for double_obs = 1:2  %最近的两个障碍
        if double_obs == 1
@@ -529,27 +545,44 @@ while OVER == 0
     %=============== SAFE  限幅======================
     future_pos_7=target_jpos;
     for each_joint = 1:7
+        %限幅
         if (future_pos_7(each_joint) <= qmin(each_joint)) || (future_pos_7(each_joint) >= qmax(each_joint))
-            disp('ERROR ! range is out of limit')
+            disp("机械臂运动范围超出限幅")
             v_control(each_joint)=0;
             OVER=1;
             stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
-            joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动
+            joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动 终止程序
+            iiwa.realTime_stopVelControlJoints();
+            iiwa.net_turnOffServer();
+            return
         end
     end
+    
+    for each_joint = 1:7
+        %限速
+        if (qd_control(each_joint) <= -qdlimit(each_joint)) || (qd_control(each_joint) >= qdlimit(each_joint))
+            disp("机械臂运动速度超出限幅")
+            v_control(each_joint)=0;
+            OVER=1;
+            stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
+            joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动 终止程序
+            iiwa.realTime_stopVelControlJoints();
+            iiwa.net_turnOffServer();
+            return
+        end
+    end
+    
     future_pos_3=end_effector_p+J_dx_dq*qd_control*dt;
-    if future_pos_3(3)<0.05
-        disp('ERROR ! range is out of limit')
+    if future_pos_3(3)<0.05  %机械臂碰到桌子
+        disp("机械臂可能会撞到桌子")
         OVER=1;
         stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
         joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动
-        break
+        iiwa.realTime_stopVelControlJoints();
+        iiwa.net_turnOffServer();    
+        return
     end
 
-
-    %     feedback_joint_velocity_after=qd_control;
-    %      feedback_joint_velocity_after=[0 0 0 0 0 0 0].';
-    %     this_zukang=num2cell(feedback_joint_velocity_after);
     
 
     joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(qd_control)); %输出关节速度
@@ -610,23 +643,25 @@ legend('1','2','3','4','5','6');
 return
 
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
-TestNum = 'v3';
+TestNum = 'v5（勉强通过)';
 GIFname = [GIFpath,'\HRC_Maze_',TestNum];
+
 % Pmass     = [0.25;0;0]; 
 Pmass     = [0.25;0;0;]; 
-
 kukaiiwa = loadrobot("kukaiiwa14","DataFormat","column");
+
 
 figure(1)   
 set(gcf,'unit','normalized','position',[0.2 0.2 0.5 0.6]);
 hold on
+Pmass     = [0.25;0;0;]; 
 all_q=all_jpos';
 totalLen = size(all_q,2);
 figure_i = 1;
 clf
 for  ii = 1:totalLen
     clf
-    if mod(ii,3) == 0  %画图太慢了 少画一点
+    if mod(ii,5) == 0  %画图太慢了 少画一点
         ii
     else
         continue
@@ -659,13 +694,12 @@ for  ii = 1:totalLen
     blue = [0 , 250 , 250];
     red = [255 , 0 , 0];
     eul = [ 0 , 0 , 0];
-%     for i = 1:Len
-%         centerPoint = cell2mat(myspace(i,3));
-%         recSize = cell2mat(myspace(i,2));
-%         drawRectangle(centerPoint,recSize,eul,0,blue);
-%         hold on
-%     end
-
+    
+%     %碰撞监测
+%     tic
+%     [isColliding,separationDist,witnessPts] = checkCollision(kukaiiwa,q,obsMeshCell,'IgnoreSelfCollision','on');
+%     toc
+    
     show(kukaiiwa, q,'Frames','off' );
     hold on
     %下层
@@ -699,6 +733,11 @@ for  ii = 1:totalLen
     xlabel("X"); ylabel('Y');  zlabel('Z');
     title("HRC Maze");
     hold off
+    
+%     轨迹线    
+%     plot3(way_points(1,:),way_points(2,:),way_points(3,:),'go-','Linewidth',3)
+%     plot3(all_end_effector_p(1,:),all_end_effector_p(2,:),all_end_effector_p(3,:),'r','Linewidth',2)
+%     plot3(points3(1,:),points3(2,:),points3(3,:),'y','Linewidth',3)
     %存储不同视角
     view(60,20) ; %左视角
     frame= getframe(gcf);  %存储当前帧
@@ -710,15 +749,15 @@ for  ii = 1:totalLen
       imwrite(imind,cm,[GIFname,'左视图','.gif'],'gif','WriteMode','append','DelayTime',.04);
     end      
     
-    view(90,90) ; %俯视视角
-    frame= getframe(gcf);  %存储当前帧
-    imind=frame2im(frame);
-    [imind,cm] = rgb2ind(imind,256);
-    if figure_i ==1
-      imwrite(imind,cm,[GIFname,'俯视图','.gif'],'gif', 'Loopcount',inf,'DelayTime',.04);
-    else
-      imwrite(imind,cm,[GIFname,'俯视图','.gif'],'gif','WriteMode','append','DelayTime',.04);
-    end        
+%     view(90,90) ; %俯视视角
+%     frame= getframe(gcf);  %存储当前帧
+%     imind=frame2im(frame);
+%     [imind,cm] = rgb2ind(imind,256);
+%     if figure_i ==1
+%       imwrite(imind,cm,[GIFname,'俯视图','.gif'],'gif', 'Loopcount',inf,'DelayTime',.04);
+%     else
+%       imwrite(imind,cm,[GIFname,'俯视图','.gif'],'gif','WriteMode','append','DelayTime',.04);
+%     end        
     
     view(140,20) ; %右视角
     frame= getframe(gcf);  %存储当前帧
@@ -801,6 +840,6 @@ end
 %           imwrite(imind,cm,[GIFname,'.gif'],'gif','WriteMode','append','DelayTime',.02);
 %         end      
 % 
-end
+% end
 
 

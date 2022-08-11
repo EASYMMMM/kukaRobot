@@ -9,3 +9,5 @@ GIF/
 *.MP4
 #忽略matlab自动备份文件
 *.asv
+#忽略.mat文件
+*.mat

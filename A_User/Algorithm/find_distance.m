@@ -8,20 +8,23 @@ x=position(1);
 y=position(2);
 z=position(3);
 center=cell2mat(myspace(obs,3));
-% if obs <=66
-%     
-%     center=center-0.1;
-% else
-%     center=center+0.1;
-% end
+
+
+
 
 %% 可修改参数
 % ======= 可修改参数 ===========
 size=cell2mat(myspace(obs,2));
-size(1)=size(1)/2;
-size(2)=size(2)/2;
+size(1)=size(1)/5;
+size(2)=size(2)/5;
 
 expand=0.1;
+
+% if obs <=66
+%     center=center-0.1;
+% else
+%     center=center+0.1;
+% end
 % ======= ======= ===========
 
 %%
