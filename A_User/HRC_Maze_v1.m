@@ -147,7 +147,7 @@ all_end_effector_p=[];all_delta=[];
 all_pos=[];all_obsF=[];this_F_att=[];v_control=zeros(6,1);
 target_joint_velocity=zeros(7,1);
 end_effector_p=eefInitPosition;
-FUTURE=3;
+
 
 all_v_control=[];all_control_signal=[];all_qd_dot=[];all_points_dot3=[];
 dists_1=[];dists_2=[];
@@ -643,7 +643,7 @@ legend('1','2','3','4','5','6');
 return
 
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
-TestNum = 'v5（勉强通过)';
+TestNum = 'v6（障碍3前超速）';
 GIFname = [GIFpath,'\HRC_Maze_',TestNum];
 
 % Pmass     = [0.25;0;0]; 
@@ -736,7 +736,7 @@ for  ii = 1:totalLen
     
 %     轨迹线    
 %     plot3(way_points(1,:),way_points(2,:),way_points(3,:),'go-','Linewidth',3)
-%     plot3(all_end_effector_p(1,:),all_end_effector_p(2,:),all_end_effector_p(3,:),'r','Linewidth',2)
+%     plot3(all_end_effector_p(1,:),all_end_effector_p(2,:),all_end_effector_p(3,:),'b','Linewidth',2)
 %     plot3(points3(1,:),points3(2,:),points3(3,:),'y','Linewidth',3)
     %存储不同视角
     view(60,20) ; %左视角
