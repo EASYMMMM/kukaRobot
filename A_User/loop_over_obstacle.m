@@ -157,7 +157,7 @@ end_effector_p=now_pos_3;
 
 q_init=what;
 all_v_control=[];all_control_signal=[];all_qd_dot=[];all_points_dot3=[];
-dists_1=[];dists_2=[];
+dists_1=[];dists_2=[];dists_3=[];
 
 
 %% Start direct servo in joint space       
@@ -248,8 +248,9 @@ disp('time to go')
 
 tic
 
-
-
+all_obs1 = [];
+all_obs2 = [];
+all_obs3 = [];
 %% Main Loop
 
 while OVER == 0
@@ -277,31 +278,48 @@ while OVER == 0
     end
     
     data_table=[]; % 1 table up 0 middle -1 down  重物的期望姿态
-    for each_s = 1:FUTURE
-        each_state=total_act(each_s);
-        if each_state <=132
-            data_table=[data_table 0];
-        elseif each_state <=198
-            data_table=[data_table -1];
-        else
-            data_table=[data_table 1];
-        end
-    end
-            
-    data_table        
+%     for each_s = 1:FUTURE
+%         each_state=total_act(each_s);
+%         if each_state <=132
+%             data_table=[data_table 0];
+%         elseif each_state <=198
+%             data_table=[data_table -1];
+%         else
+%             data_table=[data_table 1];
+%         end
+%     end
+%             
+%     data_table        
     total_act
     start_end_points
     
-    %找当前轨迹的最近两个障碍
+    middle_point=mean(start_end_points,2);
+    %找当前轨迹的最近三个障碍
     [~,which_state1]=min(sum(abs(position_of_obs-start_end_points(:,1).'),2));
      position_of_obs(which_state1,:)=[1000 1000 1000];
     [~,which_state2]=min(sum(abs(position_of_obs-start_end_points(:,2).'),2));
+    position_of_obs(which_state2,:)=[1000 1000 1000];
+    [~,which_state3]=min(sum(abs(position_of_obs-middle_point.'),2));
+    
     obs1=cartis_obs(which_state1);
     obs2=cartis_obs(which_state2);
+    obs3=cartis_obs(which_state3);
+    
+%     %找当前轨迹的最近两个障碍
+%     [~,which_state1]=min(sum(abs(position_of_obs-start_end_points(:,1).'),2));
+%     position_of_obs(which_state1,:)=[1000 1000 1000];
+%     [~,which_state2]=min(sum(abs(position_of_obs-start_end_points(:,2).'),2));
+%     obs1=cartis_obs(which_state1);
+%     obs2=cartis_obs(which_state2);
+    
+    
     v_end01=(start_end_points(:,end)-start_end_points(:,1))/norm(start_end_points(:,end)-start_end_points(:,1));
     
     obs1
     obs2
+    obs3
+    
+
     
     v_end=0.1*v_end01; %路径终点期望速度
 %     desired_v32=[ v_control(1:3) v_end];
@@ -344,6 +362,9 @@ for i=1:size(points_dot3,2)*2
 %      eul=imu3_data(13:15)*pi/180;
 %  end
 %  all_eul=[all_eul; eul;];
+all_obs1 = [all_obs1; obs1];
+all_obs2 = [all_obs2; obs2];
+all_obs3 = [all_obs3; obs3];
 eul = [ 0 0 0]; 
 
 
@@ -452,7 +473,8 @@ R_ttoe=R_ttow*(R_etow');
 
 pos_table = end_effector_p+R_ttoe*[-5*0.05; 0; 0;];
 all_pos_table=[all_pos_table pos_table];
-delta=pos_table-end_effector_p;  %重物位置和末端位置之差
+pos_table = end_effector_p;
+delta=pos_table -end_effector_p;  %重物位置和末端位置之差
 all_delta=[all_delta delta];
     
     q = this_p';
@@ -466,7 +488,7 @@ all_delta=[all_delta delta];
 
     
     q0_dot=zeros(7,1); %关节速度
-   for double_obs = 1:2  %最近的两个障碍
+      for double_obs = 1:3  %最近的三个障碍
        if double_obs == 1
             this_obs=obs1;
 %             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, 0, myspace,0);
@@ -474,17 +496,25 @@ all_delta=[all_delta delta];
             dists_1=[dists_1 dists];
             [~,index] = min(dists);
             q_each_dot = k0*grads(index,:)';
-        else
+       elseif double_obs == 2
             this_obs=obs2;
 %             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, 0, myspace,0);
             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul);
             dists_2=[dists_2 dists];
             [~,index] = min(dists);
             q_each_dot = k0*grads(index,:)';
+       else
+             this_obs=obs3;
+%             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, 0, myspace,0);
+            [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul);
+            dists_3=[dists_3 dists];
+            [~,index] = min(dists);
+            q_each_dot = k0*grads(index,:)';           
         end
         
         q0_dot=q0_dot+q_each_dot;  %受到的来自两个障碍的和斥力
-    end
+      end
+    
     F=J*q0_dot;  %转换为末端受力
     all_F=[all_F F];
     target_v3=points_dot3(:,this_point_after);
@@ -628,7 +658,7 @@ legend('1','2','3','4','5','6');
 
 return 
 
-dataFileName = ['HRC-Test-',date, '-v8（障碍3前有明显抖动，撞障碍4，障碍5前超出角度限幅）','.mat'];
+dataFileName = ['HRC-Test-',date, '-v11（稍微蹭到障碍3；撞到障碍4；不超速不超辐）','.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
 
@@ -637,7 +667,7 @@ save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 return
 
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
-TestNum = 'v8（障碍3前有明显抖动，撞障碍4，障碍5前超出角度限幅）';
+TestNum = '-v11（稍微蹭到障碍3；撞到障碍4；不超速不超辐）';
 GIFname = [GIFpath,'\HRC_Maze_',TestNum];
 
 % Pmass     = [0.25;0;0]; 
@@ -655,7 +685,7 @@ figure_i = 1;
 clf
 for  ii = 1:totalLen
     clf
-    if mod(ii,5) == 0  %画图太慢了 少画一点
+    if mod(ii,10) == 0  %画图太慢了 少画一点
         ii
     else
         continue
@@ -709,7 +739,11 @@ for  ii = 1:totalLen
     for i = cartis_obs
         centerPoint = cell2mat(myspace(i,3));
         recSize = cell2mat(myspace(i,2));
-        drawRectangle(centerPoint,recSize,eul,2,red);
+        if  (i == all_obs1(ii)) || (i == all_obs2(ii))|| (i == all_obs3(ii))
+             drawRectangle(centerPoint,recSize,eul,2,blue);
+        else
+             drawRectangle(centerPoint,recSize,eul,2,red);
+        end
         hold on
     end  
 
@@ -765,34 +799,5 @@ for  ii = 1:totalLen
     
     figure_i = figure_i+1;
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
