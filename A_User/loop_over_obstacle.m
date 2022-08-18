@@ -45,6 +45,8 @@ expand = 0.1; %障碍物尺寸计算系数（在find_distance.m中修改）
 % 
 % data_all_IMU=[];count_right_IMU=0;
 
+    
+
 %% Create the robot object
 ip='172.31.1.147'; % The IP of the controller
 arg1=KST.LBR14R820; % choose the robot iiwa7R800 or iiwa14R820
@@ -135,6 +137,21 @@ kalmanz = dsp.KalmanFilter('ProcessNoiseCovariance', 0.0001,...
     'InitialErrorCovarianceEstimate',1,...
     'ControlInputPort',false); %Create Kalman filter
 
+kalman1 = dsp.KalmanFilter('ProcessNoiseCovariance', 0.0001,...
+    'MeasurementNoiseCovariance',R,...
+    'InitialStateEstimate',5,...
+    'InitialErrorCovarianceEstimate',1,...
+    'ControlInputPort',false); %Create Kalman filter
+kalman2 = dsp.KalmanFilter('ProcessNoiseCovariance', 0.0001,...
+    'MeasurementNoiseCovariance',R,...
+    'InitialStateEstimate',5,...
+    'InitialErrorCovarianceEstimate',1,...
+    'ControlInputPort',false); %Create Kalman filter
+kalman3 = dsp.KalmanFilter('ProcessNoiseCovariance', 0.0001,...
+    'MeasurementNoiseCovariance',R,...
+    'InitialStateEstimate',5,...
+    'InitialErrorCovarianceEstimate',1,...
+    'ControlInputPort',false); %Create Kalman filter
 %% Start direct servo in joint space       
 
 
@@ -145,7 +162,7 @@ OVER=0;
 
 all_now_desired_theta=[];all_time=[];all_real_q=[];
 all_now_desired_dtheta=[];all_this_point=[];
-now_desired_dtheta_next=zeros(7,1);now_desired_theta_next=zeros(7,1);v_filt=zeros(3,1);
+now_desired_dtheta_next=zeros(7,1);now_desired_theta_next=zeros(7,1);v_filt=zeros(6,1);
 all_pos_table=[];all_q_init=[];
 
 all_end_effector_p=[];all_delta=[];
@@ -165,11 +182,11 @@ iiwa.realTime_startVelControlJoints();
 all_output=[];
 counter=0;
 all_goal_theta=[];
-pos_x=[];pos_y=[];pos_z=[];v_filt=[];new_v_filt=[];
+pos_x=[];pos_y=[];pos_z=[];new_v_filt=[];
 %% Initiate PIDDDDDDDDDDDDDDDDDDDDDDDDDD variables
-    k_cartesian = diag([100,100,100]*1*1)*1.3*5;
-    b_cartesian = diag([100,100,100]*14*0.707*45/1000*0.7*10/2*2.5);   
-    H_inv = diag([1 1 1]/10/5*2);
+    k_cartesian = diag([100,100,100 100 100 100]*1*1)*1.3*5;
+    b_cartesian = diag([100,100,100 100 100 100]*14*0.707*45/1000*0.7*10/2*2.5);   
+    H_inv = diag([1 1 1 1 1 1 ]/10/5*2);
     w_n=(k_cartesian.*H_inv)^0.5;
     w_n=w_n(1,1)
     zeta=b_cartesian.*H_inv/2./w_n;
@@ -250,7 +267,8 @@ tic
 
 all_obs1 = [];
 all_obs2 = [];
-all_obs3 = [];
+all_obs3 = [];q_control_dot=zeros(7,1);all_att_7_joint_v=[];all_filter_twist=[];all_xe=[]; all_xde=[]; all_a_d=[];
+all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];
 %% Main Loop
 
 while OVER == 0
@@ -445,6 +463,11 @@ end
 my_torque=cell2mat(my_t).';
 new_torque=[new_torque; cell2mat(my_t);];
 
+Twist=pinv(Jac.')*my_torque;
+
+
+
+
     F_contact=1*pinv(J_dx_dq.')*my_torque;
     all_F_contact=[all_F_contact F_contact];       %%!!! ''
 
@@ -452,15 +475,25 @@ new_torque=[new_torque; cell2mat(my_t);];
 F_filtered1 = kalmanx(F_contact(1));
 F_filtered2 = kalmany(F_contact(2));
 F_filtered3 = kalmanz(F_contact(3));
+
+twist4=kalman1(Twist(4));
+twist5=kalman1(Twist(5));
+twist6=kalman1(Twist(6));
+
   
 F_filt=[F_filtered1 F_filtered2 F_filtered3].';
 new_f=[new_f F_filt];
 
+filter_twist=[F_filt; twist4; twist5; twist6;];
+all_filter_twist=[all_filter_twist filter_twist];
+
+% all_filter_twist2=reshape(all_filter_twist,6,42750/6)
 
          [ pose, nsparam, rconf, jout ] = ForwardKinematics( this_p, robot_type );
         end_effector_p = pose(1:3,4);
-
-
+        eulangel=rotm2eul(pose(1:3,1:3));
+        
+        real_end_car=[end_effector_p; eulangel';];
 
 
 
@@ -492,35 +525,50 @@ all_delta=[all_delta delta];
        if double_obs == 1
             this_obs=obs1;
 %             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, 0, myspace,0);
-            [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul); % 计算斥力
-            dists_1=[dists_1 dists];
+            [dists,grads, boundarys] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul); % 计算斥力
+           
             [~,index] = min(dists);
             q_each_dot = k0*grads(index,:)';
+            which_boundary=boundarys(:,index);
+            information1=[dists(index) q_each_dot' this_obs index which_boundary'];
+            
+             dists_1=[dists_1 dists];
+            
        elseif double_obs == 2
             this_obs=obs2;
-%             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, 0, myspace,0);
-            [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul);
-            dists_2=[dists_2 dists];
+           [dists,grads, boundarys] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul); % 计算斥力
+           
             [~,index] = min(dists);
             q_each_dot = k0*grads(index,:)';
+            which_boundary=boundarys(:,index);
+            information2=[dists(index) q_each_dot' this_obs index which_boundary'];
+            
+            dists_2=[dists_2 dists];
        else
              this_obs=obs3;
-%             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, 0, myspace,0);
-            [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul);
-            dists_3=[dists_3 dists];
+           [dists,grads, boundarys] = distancesAndGrads_tableU(q, this_obs, delta, pos_table, myspace, eul); % 计算斥力
+           
             [~,index] = min(dists);
-            q_each_dot = k0*grads(index,:)';           
+            q_each_dot = k0*grads(index,:)';
+            which_boundary=boundarys(:,index);
+            information3=[dists(index) q_each_dot' this_obs index which_boundary'];
+            
+            dists_3=[dists_3 dists];
+    
         end
         
         q0_dot=q0_dot+q_each_dot;  %受到的来自两个障碍的和斥力
       end
-    
+      inform3=[information1; information2; information3;];
+    all_inform_obs=[all_inform_obs; inform3;];
     F=J*q0_dot;  %转换为末端受力
     all_F=[all_F F];
     target_v3=points_dot3(:,this_point_after);
-
+    all_target_v3=[all_target_v3 target_v3];
     qd_dot = J_pinv * points_dot3(:,this_point_after) + q0_dot;  %斥力+参考轨迹 --》关节速度
 %     qd_dot = J_pinv * points_dot3(:,i) + (eye(7)-J_pinv*J)*q0_dot;
+
+target_joint_velocity=q_control_dot;
 
 
     q_init = q_init + qd_dot*Ts;      % 更新当前目标位置    %Euler integration 
@@ -534,12 +582,65 @@ all_delta=[all_delta delta];
     v_control=J67*q_control_dot;
     all_v_control=[all_v_control v_control];
 
-    
+ target_joint_velocity_next=q_control_dot;
 %     fuck=J_pinv * points_dot3(:,i_theta);
          
+%% 33333333333333333333333333333333333333333333333333333333333333333333333333333333
+
+         [ pose, nsparam, rconf, jout ] = ForwardKinematics( q_init, robot_type );
+        target_end_effector_p = pose(1:3,4);
+        target_eulangel=rotm2eul(pose(1:3,1:3));
+       
+      
+        target_cart=[target_end_effector_p; target_eulangel';];
+        
+        
+        
+%         v_filt=J67*q_control_dot;
+        
+    a_d=(J67*target_joint_velocity_next-J67*target_joint_velocity)/dt;    
+    if i == 1
+        a_d=zeros(6,1);
+    end
     
+    for each_a = 1:6
+        if abs(a_d(each_a)) > 0.5
+            a_d(each_a)=a_d(each_a)/abs(a_d(each_a))*0.5;
+        end
+    end
+    % test without real human pushing it 
+%     filter_twist(3) = 20;
+    
+    
+    all_a_d=[all_a_d a_d];
+       xe=-target_cart+real_end_car+J67*target_joint_velocity*dt; %3 1
+       eul_e = xe(4:6,:);
+       index_eul = (abs(eul_e) >= 2*0.98*pi);
+       eul_e(index_eul) = 2*pi - abs(eul_e(index_eul));
+       xe(4:6,:) = eul_e;
+       all_xe=[all_xe xe];
+       xde=-J67*target_joint_velocity+v_filt+a_d*dt;       
+       all_xde=[all_xde xde];
+      x_t1dd=H_inv*(filter_twist-k_cartesian*xe-b_cartesian*xde);
+      all_x_t1dd=[all_x_t1dd x_t1dd];
+        equal_F=(-k_cartesian*xe-b_cartesian*xde);
+        all_f_attractor=[all_f_attractor equal_F];
+        
+        
+     xdetjia=-J67*target_joint_velocity+v_filt+x_t1dd*dt;  %%% 
+
+     
+     v_filt=xdetjia+J67*target_joint_velocity_next;
+     rate_xdetjia=[rate_xdetjia xdetjia];
+     rate_target=[rate_target J67*target_joint_velocity_next];
+     
+     att_7_joint_v=pinv(Jac)*v_filt;
+    all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
+% add attandance control
+% safte_input7=q_control_dot;
+    safte_input7=att_7_joint_v;
      %% SAFE  限幅
-    future_pos_7=q_init+q_control_dot*dt;
+    future_pos_7=q_init+safte_input7*dt;
     for each_joint = 1:7
         if (future_pos_7(each_joint) <= qmin(each_joint)) || (future_pos_7(each_joint) >= qmax(each_joint))
             disp('ERROR! 机械臂运动范围超过限幅')
@@ -555,7 +656,7 @@ all_delta=[all_delta delta];
     
     for each_joint = 1:7
     %限速
-        if (q_control_dot(each_joint) <= -qdlimit(each_joint)) || (q_control_dot(each_joint) >= qdlimit(each_joint))
+        if (safte_input7(each_joint) <= -qdlimit(each_joint)) || (safte_input7(each_joint) >= qdlimit(each_joint))
             disp("ERROR! 机械臂运动速度超出限幅")
             v_control(each_joint)=0;
             OVER=1;
@@ -567,7 +668,7 @@ all_delta=[all_delta delta];
         end
     end
     
-    future_pos_3=end_effector_p+J_dx_dq*q_control_dot*dt;
+    future_pos_3=end_effector_p+J_dx_dq*safte_input7*dt;
     if future_pos_3(3)<0.05    %机械臂碰到桌子
         disp('ERROR! 机械臂可能会撞到桌子')
         OVER=1;
@@ -644,7 +745,9 @@ legend('1','2','3','4','5','6');
 figure;
 plot(dists_2')
 legend('1','2','3','4','5','6');
-
+figure;
+plot(dists_3')
+legend('1','2','3','4','5','6');
 % fwrite(t_server_self,[88888.888,7654321],'double');%写入数字数据，每次发送360个double
 % fclose(t_server_self);
 % sychronize;
@@ -653,12 +756,12 @@ legend('1','2','3','4','5','6');
 
 
 
-%% draw 
+%% Save Data 
 
 
 return 
 
-dataFileName = ['HRC-Test-',date, '-v11（稍微蹭到障碍3；撞到障碍4；不超速不超辐）','.mat'];
+dataFileName = ['HRC-Test-',date, '-v14（加导纳但不控制，有突变）','.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
 
@@ -667,7 +770,7 @@ save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 return
 
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
-TestNum = '-v11（稍微蹭到障碍3；撞到障碍4；不超速不超辐）';
+TestNum = '-v14（加导纳但不控制，有突变）';
 GIFname = [GIFpath,'\HRC_Maze_',TestNum];
 
 % Pmass     = [0.25;0;0]; 

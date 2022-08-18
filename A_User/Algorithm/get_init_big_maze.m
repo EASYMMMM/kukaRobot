@@ -3,6 +3,7 @@ function [data cartis_obs]= get_init_big_maze(input)
 % l是木板长度，abh是障碍的长宽高,x是base到障碍的距离
 % param： input:地图编号
 % return: data: 132*4地图全部数据（myspace) ， cartis_obs: 障碍编号
+%plus smaller obstacles
 % clc;
 % clear all;
 
@@ -134,6 +135,10 @@ end
 for k= [4:8 15:19 26:30 70:74 81:85 92:96]
     data{k,4}=1;
 end
+data{cartis_obs(3),2}(2)=data{cartis_obs(1),2}(1);
+data{cartis_obs(3),2}(1)=data{cartis_obs(1),2}(2);
+data{cartis_obs(4),2}(2)=data{cartis_obs(1),2}(1);
+data{cartis_obs(4),2}(1)=data{cartis_obs(1),2}(2);
 
 
 for k = 1:132

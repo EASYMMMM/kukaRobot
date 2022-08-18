@@ -1,10 +1,4 @@
-function [dists,grads] = distancesAndGrads_tableU(q, this_obstacle,delta_table, table, myspace, eul)
-% 计算重物到障碍物的距离及斥力
-% ------------- return ------------
-% dists: 6*1 五个关节加一个重物到障碍物的最近距离
-% grads: 6*7 六个关节受到的虚拟斥力（映射到关节空间）
-% -----------------------------------
-
+function [dists,grads,boundarys] = distancesAndGrads_tableU(q, this_obstacle,delta_table, table, myspace, eul)
 % obs should be 3*6, where 3*1 means [~, boundary] =
 % find_distance(position, obs, myspace) and 
     %Distances of the control points from the obstacles along with their derivative computed in q
@@ -40,7 +34,7 @@ function [dists,grads] = distancesAndGrads_tableU(q, this_obstacle,delta_table, 
 %     find_distance(points(i,:), this_obstacle, myspace, expand)
     
     
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    
     samples=6;
     delta_table2=2*delta_table/samples;
     min_l=1000;
@@ -56,8 +50,6 @@ function [dists,grads] = distancesAndGrads_tableU(q, this_obstacle,delta_table, 
 
     dists(6) = min_l;
     boundarys(:,6) = boundary_t;
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
 % meng's cubic    
 
@@ -67,25 +59,35 @@ function [dists,grads] = distancesAndGrads_tableU(q, this_obstacle,delta_table, 
 %     boundarys(:,6) = vpa(boundaryOnObs);
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     grads = zeros(6,7);
     p0=expand;
-    [J67, A_mat_products] = Jacobian_table(q,1);
-    J=J67(1:3,:);
-    J_pinv = pinv(J);
+%     [J67, A_mat_products] = Jacobian_table(q,1);
+    
+    
+%     J=J67(1:3,:);
+%     J_pinv = pinv(J);
     for oo = 1:6
         if dists(oo)>expand
             F3=zeros(3,1);
+            J_pinv=zeros(7,3);
         else
             if oo == 6
 %   points_table
 %     boundarys(:,6)
 % (1/dists(oo)-1/p0)*1/dists(oo)^2
                 F3=(1/dists(oo)-1/p0)*1/dists(oo)^2*(points_table-boundarys(:,6))/norm(points_table-boundarys(:,6));
+                id_joint=7;
             else
                 F3=(1/dists(oo)-1/p0)*1/dists(oo)^2*(points(oo,:)'-boundarys(:,oo))/norm(points(oo,:)'-boundarys(:,oo));
+                id_joint=oo+2;
             end
+            
+        [J67, A_mat_products] = Jacobian_joint(q,id_joint);    
+        J=J67(1:3,:);
+        J_pinv = pinv(J);    
         end
+        
+        
         torque=J_pinv*F3;
         grads(oo,:)=torque;
     end

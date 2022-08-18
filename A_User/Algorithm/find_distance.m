@@ -15,8 +15,8 @@ center=cell2mat(myspace(obs,3));
 %% 可修改参数
 % ======= 可修改参数 ===========
 size=cell2mat(myspace(obs,2));
-size(1)=size(1)/5;
-size(2)=size(2)/5;
+size(1)=size(1)/1.25;
+size(2)=size(2)/1.25;
 
 expand=0.1;
 
