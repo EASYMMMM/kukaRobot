@@ -470,6 +470,9 @@ while OVER == 0
 
     pos_table = end_effector_p+R_ttoe*[-5*0.05; 0; 0;];
     all_pos_table=[all_pos_table pos_table];
+    
+    pos_table = end_effector_p;      %【【【【【【 不考虑重物 】】】】】
+    
     delta=pos_table-end_effector_p;  %重物位置和末端位置之差
     all_delta=[all_delta delta];
     

@@ -510,7 +510,7 @@ R_ttoe=R_ttow*(R_etow');
 
 pos_table = end_effector_p+R_ttoe*[-5*0.05; 0; 0;];
 all_pos_table=[all_pos_table pos_table];
-pos_table = end_effector_p;
+pos_table = end_effector_p;      %【【【【【【 不考虑重物 】】】】】
 delta=pos_table -end_effector_p;  %重物位置和末端位置之差
 all_delta=[all_delta delta];
     
@@ -574,7 +574,7 @@ all_delta=[all_delta delta];
     qd_dot = J_pinv * points_dot3(:,this_point_after) + q0_dot;  %斥力+参考轨迹 --》关节速度
 %     qd_dot = J_pinv * points_dot3(:,i) + (eye(7)-J_pinv*J)*q0_dot;
 
-target_joint_velocity=q_control_dot;
+    target_joint_velocity=q_control_dot;
 
 
     q_init = q_init + qd_dot*Ts;      % 更新当前目标位置    %Euler integration 
@@ -619,13 +619,14 @@ target_joint_velocity=q_control_dot;
     
 %     filter_twist=zeros(6,1);
     all_a_d=[all_a_d a_d];
+    
        xe=-target_cart+real_end_car+J67*target_joint_velocity*dt; %3 1
        
-       all_xe=[all_xe xe];
-       xde=-J67*target_joint_velocity+v_filt+a_d*dt;       
-       all_xde=[all_xde xde];
-      x_t1dd=H_inv*(filter_twist-k_cartesian*xe-b_cartesian*xde);
-      all_x_t1dd=[all_x_t1dd x_t1dd];
+        all_xe=[all_xe xe];
+        xde=-J67*target_joint_velocity+v_filt+a_d*dt;       
+        all_xde=[all_xde xde];
+        x_t1dd=H_inv*(filter_twist-k_cartesian*xe-b_cartesian*xde);
+        all_x_t1dd=[all_x_t1dd x_t1dd];
         equal_F=(-k_cartesian*xe-b_cartesian*xde);
         all_f_attractor=[all_f_attractor equal_F];
         
@@ -653,6 +654,8 @@ target_joint_velocity=q_control_dot;
             joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动 终止程序
             iiwa.realTime_stopVelControlJoints();
             iiwa.net_turnOffServer();
+            
+            future_pos_7
             return
         end
     end
@@ -667,6 +670,8 @@ target_joint_velocity=q_control_dot;
             joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动 终止程序
             iiwa.realTime_stopVelControlJoints();
             iiwa.net_turnOffServer();
+            
+            safe_input7
             return
         end
     end
