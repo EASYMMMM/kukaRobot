@@ -11,41 +11,14 @@ timex = 5; %运行时间系数
 
 Ts = 0.01;
 
-Kp_joint = eye(7)*0;    %比例控制系数3
+Kp_joint = eye(7)*3;    %比例控制系数
 k0 =  0.00005;            %障碍物斥力系数 
+
 FUTURE=3;
 
 sizeCon = 1/4; %障碍物尺寸计算系数（在find_distance.m中修改）
 expand = 0.1; %障碍物尺寸计算系数（在find_distance.m中修改）
 
-%%  本地MATLAB
-% t_server_self=tcpip('0.0.0.0',30000,'NetworkRole','server');%与第一个请求连接的客户机建立连接，端口号为30000，类型为服务器。
-% t_server_self.InputBuffersize=100000;
-% disp(['未打开！',datestr(now)])
-% fopen(t_server_self);%打开服务器，直到建立一个TCP连接才返回；
-% disp(['已打开！',datestr(now)])
-
-%% IMU INIT
-% IP_remote_IMU = "192.168.11.1"; 
-% port_remote_IMU = 5000;
-% IP_local_IMU = "192.168.11.2"; 
-% port_local_IMU = 5000;
-% Role_IMU = 'client';
-% t_server_IMU = tcpip(IP_remote_IMU,port_remote_IMU,...
-%                 'NetworkRole',Role_IMU,...
-%                 'LocalPort',port_local_IMU,...
-%                 'TimeOut',20,...
-%                 'InputBufferSize',8192);
-% 
-% t_server_IMU.InputBuffersize=100000;
-% 
-% disp(['未打开！',datestr(now)])
-% fopen(t_server_IMU);%打开服务器，直到建立一个TCP连接才返回；
-% disp(['已打开！',datestr(now)])
-% 
-% data_all_IMU=[];count_right_IMU=0;
-
-    
 
 %% Create the robot object
 ip='172.31.1.147'; % The IP of the controller
@@ -112,7 +85,7 @@ zd=way_points(3,i);
 
 All_theta=All_theta*pi/180;
 what=All_theta(:,2);
-what(end)=-160*pi/180;
+what(end)=20*pi/180;
 
 theta_points2=num2cell(what)
 iiwa.movePTPJointSpace(theta_points2, relVel); % move to initial configuration
@@ -184,22 +157,22 @@ counter=0;
 all_goal_theta=[];
 pos_x=[];pos_y=[];pos_z=[];new_v_filt=[];
 %% Initiate PIDDDDDDDDDDDDDDDDDDDDDDDDDD variables
-%     k_cartesian = diag([100,100,100 100 100 100]*1*1)*1.3*5;
-%     b_cartesian = diag([100,100,100 100 100 100]*14*0.707*45/1000*0.7*10/2*2.5);   
-%     H_inv = diag([1 1 1 1 1 1 ]/10/5*2);
-    k_cartesian = diag([100,100,100,0,0,0])*3;  
-    b_cartesian = diag([100,100,100,0,0,0]*1.5);
-    H_inv          = diag([1,1,1,0,0,0]/10/5*3)   ;
+    k_cartesian = diag([100,100,100 0 0 0]*1*1)*1.3*5;
+    b_cartesian = diag([100,100,100 0 0 0]*14*0.707*45/1000*0.7*10/2*2.5);   
+    H_inv = diag([1 1 1 0 0 0 ]/10/5*2);
+    
+k_cartesian(5,5)=100*1.3*2.5/2;
+b_cartesian(5,5)=100*14*0.707*45/1000*0.7*5*1.4/2*1.4;
+H_inv(5,5)=1/10/5*3*2
+% k_cartesian(4,4)=k_cartesian(5,5);k_cartesian(6,6)=k_cartesian(5,5);
+% b_cartesian(4,4)=b_cartesian(5,5); b_cartesian(6,6)=b_cartesian(5,5);
+% H_inv(4,4)=H_inv(5,5); H_inv(6,6)=H_inv(5,5);
+    
+    
     w_n=(k_cartesian.*H_inv)^0.5;
     w_n=w_n(1,1)
     zeta=b_cartesian.*H_inv/2./w_n;
     zeta=zeta(1,1)
-    syms xxx; %定义x是一个未知量
-    eqn=xxx^2+2*zeta*w_n*xxx+w_n^2==0; % 定义方程，eqn只是一个代号，代表sin(x)==1
-    solX=solve(eqn,xxx) % 求方程eqn中的x，放入solX中
-    P_coe=diag([100*2,100*2,100*2]/1000*7);
-    D_coe=diag([1,1,1]/1000*4);
-    I_coe=diag([1,1,1]/1000*6);
     
     %%
     % gain on the orientation difference of the end effector
@@ -253,16 +226,6 @@ accum_dt=0;high_loop=0;points_dot3=zeros(3,1);contact_force_after=zeros(3,1);
 
 MDZZ=[];all_real_point=[];all_this_point=[];all_this_point_after=[];all_eul=[];all_q_err = [];
 
-%% wait for IMU
-% FLAG_IMU=0;
-% while FLAG_IMU == 0
-%      [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-%      if flag ~= 0
-%          FLAG_IMU=1;
-%          eul=imu3_data(15:17)*pi/180
-%      end
-% end
-% 
 
 disp('time to go')
 
@@ -271,7 +234,7 @@ tic
 all_obs1 = [];
 all_obs2 = [];
 all_obs3 = [];q_control_dot=zeros(7,1);all_att_7_joint_v=[];all_filter_twist=[];all_xe=[]; all_xde=[]; all_a_d=[];
-all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_point3=[];
+all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_target_cart = [];all_real_end_car = [];
 %% Main Loop
 
 while OVER == 0
@@ -316,11 +279,11 @@ while OVER == 0
     
     middle_point=mean(start_end_points,2);
     %找当前轨迹的最近三个障碍
-    [~,which_state1]=min(sum(abs(position_of_obs(:,1:2)-start_end_points(1:2,1).'),2));
+    [~,which_state1]=min(sum(abs(position_of_obs-start_end_points(:,1).'),2));
      position_of_obs(which_state1,:)=[1000 1000 1000];
-    [~,which_state2]=min(sum(abs(position_of_obs(:,1:2)-start_end_points(1:2,2).'),2));
+    [~,which_state2]=min(sum(abs(position_of_obs-start_end_points(:,2).'),2));
     position_of_obs(which_state2,:)=[1000 1000 1000];
-    [~,which_state3]=min(sum(abs(position_of_obs(:,1:2)-middle_point(1:2).'),2));
+    [~,which_state3]=min(sum(abs(position_of_obs-middle_point.'),2));
     
     obs1=cartis_obs(which_state1);
     obs2=cartis_obs(which_state2);
@@ -357,33 +320,22 @@ while OVER == 0
 
     [points3,points_dot3,points_dotdot3,pp3] = cubicpolytraj(start_end_points,tpts,tvec,...
                 'VelocityBoundaryCondition', desired_v32);     
-
     t=0;
 
     all_q=[];
     round_over=0;accum_dt=0;diminish=0;delete_point=1;accu_point=1;
-       all_point3 = [ all_point3 points3];
+
 
 % 底层循环 完成三个路径点
 for i=1:size(points_dot3,2)*2  
-%             if  t_server_self.BytesAvailable>0
-%                     data_recv_self = fread(t_server_self,t_server_self.BytesAvailable/8,'double');%    disp(size(data_recv));
-%                     count_self = count_self + 1;
-%                     which_head_self=find(88887<=data_recv_self);
-%                     which_head2_self=which_head_self(end);
-%                     this_frame_self=zeros(9,1);
-%                     
-%                     this_IMU=data_recv_self(which_head2_self:end);
-%                     this_frame_self(1:length(this_IMU))=this_IMU;
-%                     data_all(:,count_self) = this_frame_self;
-%             end
 
-
-%  [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-%  if flag == 1  
-%      eul=imu3_data(13:15)*pi/180;
-%  end
-%  all_eul=[all_eul; eul;];
+    if high_loop == 3
+        OVER = 1;
+        
+        break
+    end
+    
+    
 all_obs1 = [all_obs1; obs1];
 all_obs2 = [all_obs2; obs2];
 all_obs3 = [all_obs3; obs3];
@@ -403,7 +355,7 @@ eul = [ 0 0 0];
         this_point = size(points_dot3,2);
     end
 
-       
+    
     this_p=iiwa.getJointsPos();
     this_p=cell2mat(this_p);
     
@@ -457,38 +409,35 @@ end
 %% caculate outer force
     
     %% ========Adj
-
-
+     [Jac,A_mat_products] = Jacobian(this_p,robot_type);
+     J_dx_dq = Jac(1:3,:);
+   
 
 %         % controller
         [Jac,A_mat_products] = Jacobian(this_p,robot_type);
-        J_dx_dq = Jac(1:3,:);
+        
         
 my_torque=cell2mat(my_t).';
 new_torque=[new_torque; cell2mat(my_t);];
 
 Twist=pinv(Jac.')*my_torque;
 
-
-
-
-    F_contact=1*pinv(J_dx_dq.')*my_torque;
-    all_F_contact=[all_F_contact F_contact];       %%!!! ''
-
+F_contact=1*pinv(J_dx_dq.')*my_torque;
     
 F_filtered1 = kalmanx(F_contact(1));
 F_filtered2 = kalmany(F_contact(2));
 F_filtered3 = kalmanz(F_contact(3));
 
 twist4=kalman1(Twist(4));
-twist5=kalman1(Twist(5));
-twist6=kalman1(Twist(6));
+twist5=kalman2(Twist(5));
+twist6=kalman3(Twist(6));
 
   
 F_filt=[F_filtered1 F_filtered2 F_filtered3].';
 new_f=[new_f F_filt];
 
 filter_twist=[F_filt; twist4; twist5; twist6;];
+filter_twist=zeros(6,1);
 all_filter_twist=[all_filter_twist filter_twist];
 
 % all_filter_twist2=reshape(all_filter_twist,6,42750/6)
@@ -498,7 +447,10 @@ all_filter_twist=[all_filter_twist filter_twist];
         eulangel=rotm2eul(pose(1:3,1:3));
         
         real_end_car=[end_effector_p; eulangel';];
-
+        if real_end_car(end) < - 0.5*pi
+            real_end_car(end)=-real_end_car(end);
+        end
+        all_real_end_car = [all_real_end_car, real_end_car];
 
 
 %% real time interaction
@@ -564,9 +516,7 @@ all_delta=[all_delta delta];
         q0_dot=q0_dot+q_each_dot;  %受到的来自两个障碍的和斥力
       end
       inform3=[information1; information2; information3;];
-    all_inform_obs=[all_inform_obs; inform3;];    
-    
-    
+    all_inform_obs=[all_inform_obs; inform3;];
     F=J*q0_dot;  %转换为末端受力
     all_F=[all_F F];
     target_v3=points_dot3(:,this_point_after);
@@ -599,7 +549,7 @@ target_joint_velocity=q_control_dot;
        
       
         target_cart=[target_end_effector_p; target_eulangel';];
-        
+        all_target_cart = [all_target_cart, target_cart];
         
         
 %         v_filt=J67*q_control_dot;
@@ -617,10 +567,13 @@ target_joint_velocity=q_control_dot;
     % test without real human pushing it 
 %     filter_twist(3) = 20;
     
-%     filter_twist=zeros(6,1);
+    
     all_a_d=[all_a_d a_d];
        xe=-target_cart+real_end_car+J67*target_joint_velocity*dt; %3 1
-       
+%        eul_e = xe(4:6,:);
+%        index_eul = (abs(eul_e) >= 2*0.98*pi);
+%        eul_e(index_eul) = 2*pi - abs(eul_e(index_eul));
+%        xe(4:6,:) = eul_e;
        all_xe=[all_xe xe];
        xde=-J67*target_joint_velocity+v_filt+a_d*dt;       
        all_xde=[all_xde xde];
@@ -636,12 +589,15 @@ target_joint_velocity=q_control_dot;
      v_filt=xdetjia+J67*target_joint_velocity_next;
      rate_xdetjia=[rate_xdetjia xdetjia];
      rate_target=[rate_target J67*target_joint_velocity_next];
-     att_7_joint_v=pinv(Jac)*[v_filt(1:3); zeros(3,1)];
-%      att_7_joint_v=pinv(J_dx_dq)*v_filt(1:3);
+     
+%      att_7_joint_v=pinv(Jac)*v_filt;
+     att_7_joint_v=pinv(J_dx_dq)*v_filt(1:3);
     all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
 % add attandance control
 % safe_input7=q_control_dot;
-    safe_input7=att_7_joint_v;
+%     safe_input7=att_7_joint_v;
+    
+    safe_input7=target_joint_velocity_next;
      %% SAFE  限幅
     future_pos_7=q_init+safe_input7*dt;
     for each_joint = 1:7
@@ -691,28 +647,16 @@ target_joint_velocity=q_control_dot;
 
     my_t=iiwa.sendJointsVelocitiesExTorques(this_zukang);
 
-%     while 1
-%         t0=toc;
-%         dt_real=-start+t0;
-%         if ~( dt_real >= Ts )
-%           continue
-%         else
-%             start=t0;
-%             all_toc=[all_toc t0];
-%             break
-%         end
-%     end
-    
     t0=toc;
     dt_real=-start+t0;
     start=t0;
     all_toc=[all_toc t0];
 
-    if round_over == 1
-        disp('round_over')
-%         OVER=1;
-        break
-    end
+%     if round_over == 1
+%         disp('round_over')
+% %         OVER=1;
+%         break
+%     end
 end
 
 end
@@ -721,216 +665,9 @@ end
 % iiwa.realTime_stopImpedanceJoints()
 iiwa.realTime_stopVelControlJoints();
 iiwa.net_turnOffServer()
-% pause(10)
-
-% 
-% fwrite(t_server_IMU,[88888.888,7654321],'double');%写入数字数据，每次发送360个double
-% fclose(t_server_IMU);
-% disp('彻底关闭！！');
-    
-
-figure;
-plot(all_F');hold on;
-
-all_hf=[];
-for alf= 1:size(all_F,2)
-    helif=norm(all_F(:,alf));
-    all_hf=[all_hf helif];
+for fuck = 1:6
+figure(fuck);
+plot(all_target_cart(fuck,:)); hold on;
+plot(all_real_end_car(fuck,:));
+legend('tar','real')
 end
-plot(all_hf)
-legend('x','y','z','all')
-
-% 
-figure;
-plot(dists_1')
-legend('1','2','3','4','5','6');
-
-figure;
-plot(dists_2')
-legend('1','2','3','4','5','6');
-figure;
-plot(dists_3')
-legend('1','2','3','4','5','6');
-% fwrite(t_server_self,[88888.888,7654321],'double');%写入数字数据，每次发送360个double
-% fclose(t_server_self);
-% sychronize;
-% save('20220501yl3_stop.mat','sychronize')
-% save('20220501yl3_stop_all.mat')
-
-
-
-%% Save Data 
-
-
-return 
-
-dataFileName = ['HRC-Test-',date, '-v19（锁住欧拉角，上层障碍上调0.05，size_2）','.mat'];
-save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
-
-
-%% Draw with maze
-
-return
-
-GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
-TestNum = '-v19（锁住欧拉角，上层障碍上调0.05，size_2）';
-GIFname = [GIFpath,'\HRC_Maze_',TestNum];
-
-% Pmass     = [0.25;0;0]; 
-Pmass     = [0.25;0;0;]; 
-kukaiiwa = loadrobot("kukaiiwa14","DataFormat","column");
-figure(200)   
-set(gcf,'unit','normalized','position',[0.2 0.2 0.5 0.6]);
-hold on
-Pmass     = [0.25;0;0;]; 
-all_q=all_jpos';
-totalLen = size(all_q,2);
-figure_i = 1;
-clf
-for  ii = 1:totalLen
-    clf
-    if mod(ii,10) == 0  %画图太慢了 少画一点
-        ii
-    else
-        continue
-    end
-    
-    T = [ ];
-    q=all_q(:,ii);
-    [T,J]=directKinematicsAboutEachJoint(q);
-    Rew = T(1:3,1:3,7);
-    joint_cart = zeros(3,7);
-    %     EUL = all_eul(ii,:);
-    EUL = [ 0 0 0 ];
-    eul = [EUL(3) EUL(2) EUL(1)];
-    R_mass = eul2rotm(eul);
-    %R_mass_7=R_mass*(Rew');
-    %重物  
-    Tmass = zeros(4,4);
-    Tmass(1:3,1:3) = R_mass;
-    Tmass(1:3,4) =  Tmass(1:3,1:3)  * Pmass + T(1:3,4,7); %重物方向沿末端执行器坐标系的x轴负方向
-    Tmass(4,4) = 1;
-    T(:,:,8) = Tmass;   
-      % 提取各关节点笛卡尔坐标
-    for i = 1:8
-        joint_cart( : , i ) = T(1:3,4,i); 
-    end
-     joint_cart( : , 1 ) = [0;0;0];
-     
-    %障碍物
-    Len = length(myspace(:,1));
-    blue = [0 , 250 , 250];
-    red = [255 , 0 , 0];
-    eul = [ 0 , 0 , 0];
-    
-%     %碰撞监测
-%     tic
-%     [isColliding,separationDist,witnessPts] = checkCollision(kukaiiwa,q,obsMeshCell,'IgnoreSelfCollision','on');
-%     toc
-    
-    show(kukaiiwa, q,'Frames','off' );
-    hold on
-    %下层
-    centerPoint = [ 0.3750 , 0 , 0.2];
-    recSize = [1.25 , 1.9500 , 0.4];
-    drawRectangle(centerPoint,recSize,eul,0,blue);
-    hold on
-    %上层
-    centerPoint = [ 0.3750 , 0 , 0.6];
-    recSize = [1.25 , 1.9500 , 0.4];
-    drawRectangle(centerPoint,recSize,eul,0,blue);
-    hold on
-    for i = cartis_obs
-        centerPoint = cell2mat(myspace(i,3));
-        recSize = cell2mat(myspace(i,2));
-        if  (i == all_obs1(ii)) || (i == all_obs2(ii))|| (i == all_obs3(ii))
-             drawRectangle(centerPoint,recSize,eul,2,blue);
-        else
-             drawRectangle(centerPoint,recSize,eul,2,red);
-        end
-        hold on
-    end  
-
-%     kuka_color = [240 153 80];    %为kuka选择喜欢的颜色
-%     plot3(  joint_cart(1,1:7) ,  joint_cart(2,1:7) , joint_cart(3,1:7) ,'o-','color',kuka_color/255,'Linewidth',3);   %绘制KUKA机器人
-%     hold on 
-%     grid on
-
-    metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
-    plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',3);   %绘制重物
-    
-    view(60,40) ;
-    axis([-0.5,1.2 ,-1,1, 0,0.9]);
-
-    xlabel("X"); ylabel('Y');  zlabel('Z');
-    title("HRC Maze");
-    
-    %标记出参与计算的三个关节到距离最近的障碍物的距离
-    for  k = 1:3
-        woodGreen = [34 139 34 ] ;
-        num = (ii-1)*3 + k;
-        jointNum =  all_inform_obs(num,10)+2;
-        nearestPoint(1,:) = T(1:3,4,jointNum);
-        nearestPoint(2,:) =  all_inform_obs(num,11:13)';
-        plot3(nearestPoint(:,1),nearestPoint(:,2),nearestPoint(:,3),'color',woodGreen/255,'Linewidth',3);
-        hold on
-    end
-    
-    hold off
-    
-%     ========= 轨迹线 =============
-%     waypoint 预设路径  路径点
-%     plot3(way_points(1,:),way_points(2,:),way_points(3,:),'go-','Linewidth',3)
-%     实际轨迹
-%     plot3(all_end_effector_p(1,:),all_end_effector_p(2,:),all_end_effector_p(3,:),'b','Linewidth',2)
-%     轨迹规划所生成的目标点
-%     plot3(all_point3(1,1:701),all_point3(2,1:701),all_point3(3,1:701),'g','Linewidth',3)
-
-    %存储不同视角
-    view(60,20) ; %左视角
-    frame= getframe(gcf);  %存储当前帧
-    imind=frame2im(frame);
-    [imind,cm] = rgb2ind(imind,256);
-    if figure_i ==1
-      imwrite(imind,cm,[GIFname,'左视图','.gif'],'gif', 'Loopcount',inf,'DelayTime',.04);
-    else
-      imwrite(imind,cm,[GIFname,'左视图','.gif'],'gif','WriteMode','append','DelayTime',.04);
-    end      
-    
-%     view(90,90) ; %俯视视角
-%     frame= getframe(gcf);  %存储当前帧
-%     imind=frame2im(frame);
-%     [imind,cm] = rgb2ind(imind,256);
-%     if figure_i ==1
-%       imwrite(imind,cm,[GIFname,'俯视图','.gif'],'gif', 'Loopcount',inf,'DelayTime',.04);
-%     else
-%       imwrite(imind,cm,[GIFname,'俯视图','.gif'],'gif','WriteMode','append','DelayTime',.04);
-%     end        
-    
-    view(140,20) ; %右视角
-    frame= getframe(gcf);  %存储当前帧
-    imind=frame2im(frame);
-    [imind,cm] = rgb2ind(imind,256);
-    if figure_i ==1
-      imwrite(imind,cm,[GIFname,'右视图','.gif'],'gif', 'Loopcount',inf,'DelayTime',.04);
-    else
-      imwrite(imind,cm,[GIFname,'右视图','.gif'],'gif','WriteMode','append','DelayTime',.04);
-    end      
-    
-    figure_i = figure_i+1;
-end
-
-
-return 
-for  k = 1:3
-    woodGreen = [34 139 34 ] ;
-    num = (ii-1)*3 + k;
-    jointNum =  all_inform_obs(num,10)+2;
-    nearestPoint(1,:) = T(1:3,4,jointNum);
-    nearestPoint(2,:) =  all_inform_obs(num,11:13)';
-    plot3(nearestPoint(:,1),nearestPoint(:,2),nearestPoint(:,3),'color',woodGreen/255,'Linewidth',2);
-    hold on
-end
-
-    
-

@@ -4,22 +4,17 @@ function [dists,grads,boundarys] = distancesAndGrads_tableU(q, this_obstacle,del
     %Distances of the control points from the obstacles along with their derivative computed in q
     expand=0.1;
     old_points = zeros(5,3);
-    old_points(1,:) = [-(cos(q(1))*sin(q(2)))/5; -(sin(q(1))*sin(q(2)))/5; cos(q(2))/5 + 9/25];
-    old_points(2,:) = [-(21*cos(q(1))*sin(q(2)))/50; -(21*sin(q(1))*sin(q(2)))/50; (21*cos(q(2)))/50 + 9/25];
-    old_points(3,:) = [-(21*cos(q(1))*sin(q(2)))/50 - (sin(q(4))*(sin(q(1))*sin(q(3)) - cos(q(1))*cos(q(2))*cos(q(3))))/5 - (cos(q(1))*cos(q(4))*sin(q(2)))/5; (sin(q(4))*(cos(q(1))*sin(q(3)) + cos(q(2))*cos(q(3))*sin(q(1))))/5 - (21*sin(q(1))*sin(q(2)))/50 - (cos(q(4))*sin(q(1))*sin(q(2)))/5;(21*cos(q(2)))/50 + (cos(q(2))*cos(q(4)))/5 + (cos(q(3))*sin(q(2))*sin(q(4)))/5 + 9/25];
-    old_points(4,:) = [-(21*cos(q(1))*sin(q(2)))/50 - (2*sin(q(4))*(sin(q(1))*sin(q(3)) - cos(q(1))*cos(q(2))*cos(q(3))))/5 - (2*cos(q(1))*cos(q(4))*sin(q(2)))/5;(2*sin(q(4))*(cos(q(1))*sin(q(3)) + cos(q(2))*cos(q(3))*sin(q(1))))/5 - (21*sin(q(1))*sin(q(2)))/50 - (2*cos(q(4))*sin(q(1))*sin(q(2)))/5;(21*cos(q(2)))/50 + (2*cos(q(2))*cos(q(4)))/5 + (2*cos(q(3))*sin(q(2))*sin(q(4)))/5 + 9/25];
-    old_points(5,:) = [(21*sin(q(6))*(cos(q(5))*(cos(q(4))*(sin(q(1))*sin(q(3)) - cos(q(1))*cos(q(2))*cos(q(3))) - cos(q(1))*sin(q(2))*sin(q(4))) + sin(q(5))*(cos(q(3))*sin(q(1)) + cos(q(1))*cos(q(2))*sin(q(3)))))/100 - (21*cos(q(6))*(sin(q(4))*(sin(q(1))*sin(q(3)) - cos(q(1))*cos(q(2))*cos(q(3))) + cos(q(1))*cos(q(4))*sin(q(2))))/100 - (21*cos(q(1))*sin(q(2)))/50 - (2*sin(q(4))*(sin(q(1))*sin(q(3)) - cos(q(1))*cos(q(2))*cos(q(3))))/5 - (2*cos(q(1))*cos(q(4))*sin(q(2)))/5;
-                   (21*cos(q(6))*(sin(q(4))*(cos(q(1))*sin(q(3)) + cos(q(2))*cos(q(3))*sin(q(1))) - cos(q(4))*sin(q(1))*sin(q(2))))/100 - (21*sin(q(1))*sin(q(2)))/50 - (21*sin(q(6))*(cos(q(5))*(cos(q(4))*(cos(q(1))*sin(q(3)) + cos(q(2))*cos(q(3))*sin(q(1))) + sin(q(1))*sin(q(2))*sin(q(4))) + sin(q(5))*(cos(q(1))*cos(q(3)) - cos(q(2))*sin(q(1))*sin(q(3)))))/100 + (2*sin(q(4))*(cos(q(1))*sin(q(3)) + cos(q(2))*cos(q(3))*sin(q(1))))/5 - (2*cos(q(4))*sin(q(1))*sin(q(2)))/5;
-                                                                                                                                                                                           (21*cos(q(2)))/50 + (2*cos(q(2))*cos(q(4)))/5 + (21*sin(q(6))*(cos(q(5))*(cos(q(2))*sin(q(4)) - cos(q(3))*cos(q(4))*sin(q(2))) + sin(q(2))*sin(q(3))*sin(q(5))))/100 + (21*cos(q(6))*(cos(q(2))*cos(q(4)) + cos(q(3))*sin(q(2))*sin(q(4))))/100 + (2*cos(q(3))*sin(q(2))*sin(q(4)))/5 + 9/25];
-                                                                                                                                                                                       
-                                                                                                                                                                                       
-     
-                                                                                                                                                                          
+    [T,J]=directKinematicsAboutEachJoint(q);
+
+    for lp = 1:5
+        old_points(lp,:) = T(1:3,4,lp+2)';
+    end
+    
     boundarys=zeros(3,6);
      dists = zeros(6,1);
      points=old_points;
-     points(:,1)=-old_points(:,1);
-     points(:,2)=-old_points(:,2);
+     points(1,:)=(T(1:3,4,1)'+old_points(1,:))/2;
+     points(3,:)=(old_points(1,:)+old_points(3,:))/2;
      
     for i=1:5
 %         points(i,:)'
