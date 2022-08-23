@@ -2,6 +2,8 @@
 % 测试一下仿真转移到KST，过全部障碍
 %
 % 2022年8月10日  参数调整
+% 2022年8月23日 添加IMU
+
 
 close all;clear;clc;
 warning('off')
@@ -26,24 +28,24 @@ expand = 0.1; %障碍物尺寸计算系数（在find_distance.m中修改）
 % disp(['已打开！',datestr(now)])
 
 %% IMU INIT
-% IP_remote_IMU = "192.168.11.1"; 
-% port_remote_IMU = 5000;
-% IP_local_IMU = "192.168.11.2"; 
-% port_local_IMU = 5000;
-% Role_IMU = 'client';
-% t_server_IMU = tcpip(IP_remote_IMU,port_remote_IMU,...
-%                 'NetworkRole',Role_IMU,...
-%                 'LocalPort',port_local_IMU,...
-%                 'TimeOut',20,...
-%                 'InputBufferSize',8192);
-% 
-% t_server_IMU.InputBuffersize=100000;
-% 
-% disp(['未打开！',datestr(now)])
-% fopen(t_server_IMU);%打开服务器，直到建立一个TCP连接才返回；
-% disp(['已打开！',datestr(now)])
-% 
-% data_all_IMU=[];count_right_IMU=0;
+IP_remote_IMU = "192.168.11.1"; 
+port_remote_IMU = 5000;
+IP_local_IMU = "192.168.11.2"; 
+port_local_IMU = 5000;
+Role_IMU = 'client';
+t_server_IMU = tcpip(IP_remote_IMU,port_remote_IMU,...
+                'NetworkRole',Role_IMU,...
+                'LocalPort',port_local_IMU,...
+                'TimeOut',20,...
+                'InputBufferSize',8192);
+
+t_server_IMU.InputBuffersize=100000;
+
+disp(['未打开！',datestr(now)])
+fopen(t_server_IMU);%打开服务器，直到建立一个TCP连接才返回；
+disp(['已打开！',datestr(now)])
+
+data_all_IMU=[];count_right_IMU=0;
 
     
 
@@ -254,16 +256,18 @@ accum_dt=0;high_loop=0;points_dot3=zeros(3,1);contact_force_after=zeros(3,1);
 MDZZ=[];all_real_point=[];all_this_point=[];all_this_point_after=[];all_eul=[];all_q_err = [];
 
 %% wait for IMU
-% FLAG_IMU=0;
-% while FLAG_IMU == 0
-%      [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-%      if flag ~= 0
-%          FLAG_IMU=1;
-%          eul=imu3_data(15:17)*pi/180
-%      end
-% end
-% 
+FLAG_IMU=0;
+while FLAG_IMU == 0
+     [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
+     if flag == 1
+         FLAG_IMU=1;
+         eul=imu3_data(13:15)*pi/180
+     end
+end
+disp('成功接收IMU数据');
 
+
+%% Main Loop
 disp('time to go')
 
 tic
@@ -272,8 +276,6 @@ all_obs1 = [];
 all_obs2 = [];
 all_obs3 = [];q_control_dot=zeros(7,1);all_att_7_joint_v=[];all_filter_twist=[];all_xe=[]; all_xde=[]; all_a_d=[];
 all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_point3=[];
-%% Main Loop
-
 while OVER == 0
     
     CHANGE=1;   %CHANGE =1 没变
@@ -379,15 +381,19 @@ for i=1:size(points_dot3,2)*2
 %             end
 
 
-%  [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-%  if flag == 1  
-%      eul=imu3_data(13:15)*pi/180;
-%  end
-%  all_eul=[all_eul; eul;];
+%读取一帧IMU数据 
+ [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
+ if flag == 1  
+     eul=imu3_data(13:15)*pi/180; %重物的欧拉角
+ end
+ all_eul=[all_eul; eul;];
+ 
+% eul = [ 0 0 0]; 
+
 all_obs1 = [all_obs1; obs1];
 all_obs2 = [all_obs2; obs2];
 all_obs3 = [all_obs3; obs3];
-eul = [ 0 0 0]; 
+
 
 
  %% CONTROL   
@@ -728,10 +734,10 @@ iiwa.realTime_stopVelControlJoints();
 iiwa.net_turnOffServer()
 % pause(10)
 
-% 
-% fwrite(t_server_IMU,[88888.888,7654321],'double');%写入数字数据，每次发送360个double
-% fclose(t_server_IMU);
-% disp('彻底关闭！！');
+
+fwrite(t_server_IMU,[88888.888,7654321],'double');%写入数字数据，每次发送360个double
+fclose(t_server_IMU);
+disp('IMU关闭！！');
     
 
 figure;
@@ -768,8 +774,8 @@ legend('1','2','3','4','5','6');
 
 
 return 
-
-dataFileName = ['HRC-Test-',date, '-v19（锁住欧拉角，上层障碍上调0.05，size_2）','.mat'];
+TestNum = '-v21（第二次添加重物，测试重物复现）';
+dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
 
@@ -777,8 +783,20 @@ save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
 return
 
+% =======================
+all_eulModified(:,1:2) = all_eul(:,1:2) ;
+all_eulModified(:,3) = all_eul(:,3) + pi/2;
+index_2 = all_eulModified(:,3) > pi;
+all_eulModified(index_2,3) = all_eulModified(index_2,3) - 2*pi;
+
+
+all_eul = all_eulModified;
+% index_1 = all_eulModified(:,3) < -pi;
+% all_eulModified(index_1,3) = all_eulModified(index_1,3) + 2*pi;
+
+
+% =======================
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
-TestNum = '-v19（锁住欧拉角，上层障碍上调0.05，size_2）';
 GIFname = [GIFpath,'\HRC_Maze_',TestNum];
 
 % Pmass     = [0.25;0;0]; 
@@ -787,14 +805,13 @@ kukaiiwa = loadrobot("kukaiiwa14","DataFormat","column");
 figure(200)   
 set(gcf,'unit','normalized','position',[0.2 0.2 0.5 0.6]);
 hold on
-Pmass     = [0.25;0;0;]; 
 all_q=all_jpos';
 totalLen = size(all_q,2);
 figure_i = 1;
 clf
 for  ii = 1:totalLen
     clf
-    if mod(ii,10) == 0  %画图太慢了 少画一点
+    if mod(ii,15) == 0  %画图太慢了 少画一点
         ii
     else
         continue
@@ -805,17 +822,18 @@ for  ii = 1:totalLen
     [T,J]=directKinematicsAboutEachJoint(q);
     Rew = T(1:3,1:3,7);
     joint_cart = zeros(3,7);
-    %     EUL = all_eul(ii,:);
-    EUL = [ 0 0 0 ];
-    eul = [EUL(3) EUL(2) EUL(1)];
-    R_mass = eul2rotm(eul);
+    EUL = all_eul(ii,:);
+    %EUL = [ 0 0 0 ];
+    eul_mass = [EUL(3) EUL(2) EUL(1)];
+    R_mass = eul2rotm(eul_mass);
     %R_mass_7=R_mass*(Rew');
     %重物  
     Tmass = zeros(4,4);
     Tmass(1:3,1:3) = R_mass;
-    Tmass(1:3,4) =  Tmass(1:3,1:3)  * Pmass + T(1:3,4,7); %重物方向沿末端执行器坐标系的x轴负方向
+    Tmass(1:3,4) =  Tmass(1:3,1:3)  * Pmass + (T(1:3,4,7) + [ 0; 0 ; -0.08]) ;  %重物方向沿末端执行器坐标系的x轴负方向
     Tmass(4,4) = 1;
     T(:,:,8) = Tmass;   
+    Pmass_wf = Tmass(1:3,1:3)  * Pmass;
       % 提取各关节点笛卡尔坐标
     for i = 1:8
         joint_cart( : , i ) = T(1:3,4,i); 
@@ -861,8 +879,15 @@ for  ii = 1:totalLen
 %     hold on 
 %     grid on
 
-    metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
-    plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',3);   %绘制重物
+%     metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
+%     plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',3);   %绘制重物
+    
+    %重物
+    centerPoint = (T(1:3,4,7) + [ 0; 0 ; -0.08]) +   Pmass_wf/2 ;
+    recSize =  [0.25; 0.10 ;0.02;]; 
+    black = [ 30;30;30];
+    drawRectangle(centerPoint,recSize,EUL,2,black);
+    hold on
     
     view(60,40) ;
     axis([-0.5,1.2 ,-1,1, 0,0.9]);
@@ -870,16 +895,16 @@ for  ii = 1:totalLen
     xlabel("X"); ylabel('Y');  zlabel('Z');
     title("HRC Maze");
     
-    %标记出参与计算的三个关节到距离最近的障碍物的距离
-    for  k = 1:3
-        woodGreen = [34 139 34 ] ;
-        num = (ii-1)*3 + k;
-        jointNum =  all_inform_obs(num,10)+2;
-        nearestPoint(1,:) = T(1:3,4,jointNum);
-        nearestPoint(2,:) =  all_inform_obs(num,11:13)';
-        plot3(nearestPoint(:,1),nearestPoint(:,2),nearestPoint(:,3),'color',woodGreen/255,'Linewidth',3);
-        hold on
-    end
+%     %标记出参与计算的三个关节到距离最近的障碍物的距离
+%     for  k = 1:3
+%         woodGreen = [34 139 34 ] ;
+%         num = (ii-1)*3 + k;
+%         jointNum =  all_inform_obs(num,10)+2;
+%         nearestPoint(1,:) = T(1:3,4,jointNum);
+%         nearestPoint(2,:) =  all_inform_obs(num,11:13)';
+%         plot3(nearestPoint(:,1),nearestPoint(:,2),nearestPoint(:,3),'color',woodGreen/255,'Linewidth',3);
+%         hold on
+%     end
     
     hold off
     
@@ -926,16 +951,6 @@ for  ii = 1:totalLen
 end
 
 
-return 
-for  k = 1:3
-    woodGreen = [34 139 34 ] ;
-    num = (ii-1)*3 + k;
-    jointNum =  all_inform_obs(num,10)+2;
-    nearestPoint(1,:) = T(1:3,4,jointNum);
-    nearestPoint(2,:) =  all_inform_obs(num,11:13)';
-    plot3(nearestPoint(:,1),nearestPoint(:,2),nearestPoint(:,3),'color',woodGreen/255,'Linewidth',2);
-    hold on
-end
 
     
 

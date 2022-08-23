@@ -33,12 +33,19 @@ disp(['IMU连接已打开！',datestr(now)])
 
 disp('IMU副电脑连接成功！');
 i  = 1;
+all_eul= [ ] ;
 this_frame_IMU = 0;
 while 1
     
     disp(' =====================================================================');
     [forearm_imu_data , upperarm_imu_data , mass_imu_data , imu_flag ] = IMU_ReadOneFrame(t_server_IMU); 
-    forearm_imu_data
+%     forearm_imu_data
+    mass_imu_data
+    [~,a] = size(mass_imu_data);
+    if a >10
+        eul=mass_imu_data(13:15)*pi/180; 
+        all_eul = [all_eul ; eul];
+    end
     imu_flag
     
 %     try     %因为fread（）在缓冲区没有数据的时候读取会报错，因此用try—catch语句忽略这种错误，直到读取到数据。

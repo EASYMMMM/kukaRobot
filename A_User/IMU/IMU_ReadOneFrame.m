@@ -20,41 +20,53 @@ if  t_server_IMU.BytesAvailable>0
         this_frame_IMU=data_recv_IMU(frame_head:end);             %读取最新一帧全部数据
         
         if length(this_frame_IMU) == 76     %是否为完整帧
-           imu1 = find(this_frame_IMU == 111);  %定位1号IMU
-           if length(imu1) < 1  %若未找到111帧头，说明IMU还未成功连接，直接返回
-                flag = 0 ;
-                imu1_data = 0;
-                imu2_data = 0;
-                imu3_data = 0;
-                return
-           end
-           if imu1 < 26
-               imu1_data=this_frame_IMU(1+1:25+1,:).';
-           elseif imu1>26 && imu1<51
-                imu1_data=this_frame_IMU(26+1:50+1,:).';
-               else
-                     imu1_data=this_frame_IMU(51+1:75+1,:).';   
-           end
-           imu2 = find(this_frame_IMU == 222);%定位2号IMU
-            if imu2 < 26
-               imu2_data=this_frame_IMU(1+1:25+1,:).';
-            elseif imu2>26 && imu2<51
-                imu2_data=this_frame_IMU(26+1:50+1,:).';
-               else
-                     imu2_data=this_frame_IMU(51+1:75+1,:).';
-            end
-           imu3 = find(this_frame_IMU == 333);%定位3号IMU
-            if imu3 < 26
-               imu3_data=this_frame_IMU(1+1:25+1,:).';
-            elseif imu3>26 && imu3<51
-                imu3_data=this_frame_IMU(26+1:50+1,:).';
-               else
-                     imu3_data=this_frame_IMU(51+1:75+1,:).';   
-            end
-          
+            imu1_data=this_frame_IMU(1+1:25+1,:).';
+            imu2_data=this_frame_IMU(26+1:50+1,:).';
+            imu3_data=this_frame_IMU(51+1:75+1,:).';   
+            
+             if (imu3_data(1,13)+imu3_data(1,14)+imu3_data(1,15)) == 3 
+                flag = 0;
+             end
         else %不为完整帧 返回flag = 0
-            flag = 0;
+           flag = 0;
         end
+        
+%         if length(this_frame_IMU) == 76     %是否为完整帧
+%            imu1 = find(this_frame_IMU == 111);  %定位1号IMU
+%            if length(imu1) < 1  %若未找到111帧头，说明IMU还未成功连接，直接返回
+%                 flag = 0 ;
+%                 imu1_data = 0;
+%                 imu2_data = 0;
+%                 imu3_data = 0;
+%                 return
+%            end
+%            if imu1 < 26
+%                imu1_data=this_frame_IMU(1+1:25+1,:).';
+%            elseif imu1>26 && imu1<51
+%                 imu1_data=this_frame_IMU(26+1:50+1,:).';
+%                else
+%                      imu1_data=this_frame_IMU(51+1:75+1,:).';   
+%            end
+%            imu2 = find(this_frame_IMU == 222);%定位2号IMU
+%             if imu2 < 26
+%                imu2_data=this_frame_IMU(1+1:25+1,:).';
+%             elseif imu2>26 && imu2<51
+%                 imu2_data=this_frame_IMU(26+1:50+1,:).';
+%                else
+%                      imu2_data=this_frame_IMU(51+1:75+1,:).';
+%             end
+%            imu3 = find(this_frame_IMU == 333);%定位3号IMU
+%             if imu3 < 26
+%                imu3_data=this_frame_IMU(1+1:25+1,:).';
+%             elseif imu3>26 && imu3<51
+%                 imu3_data=this_frame_IMU(26+1:50+1,:).';
+%                else
+%                      imu3_data=this_frame_IMU(51+1:75+1,:).';   
+%             end
+%           
+%         else %不为完整帧 返回flag = 0
+%             flag = 0;
+%         end
     else
         flag = 0;
     end

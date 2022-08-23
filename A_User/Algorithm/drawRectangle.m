@@ -4,7 +4,7 @@ function drawRectangle( centerPoint , size , eul , solid , color)
 % ======== parameters =======================
 %  centerPoint: 长方体中心点 
 %  size：长方体尺寸 (长，宽，高）
-%  eul：长方体姿态欧拉角
+%  eul：长方体姿态欧拉角 XYZ
 %  solid：是否实心 ( 0：虚线边框无填充；1：实线边框无填充；
 %           2：实线边框有填充
 %  color：RGB颜色 （[255 255 255])
@@ -15,7 +15,7 @@ CenterPoint = [ centerPoint(1) ; centerPoint(2) ; centerPoint(3) ] ;
 Xedge = size(1)/2;
 Yedge = size(2)/2;
 Zedge = size(3)/2;
-EUL = [eul(1) , eul(2) , eul(3)];
+EUL = [eul(3) , eul(2) , eul(1)];
 R = eul2rotm(EUL);
 Xedge = Xedge.*(R*[1;0;0]) ; 
 Yedge = Yedge.*(R*[0;1;0]) ; 
