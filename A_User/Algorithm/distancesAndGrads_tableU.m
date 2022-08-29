@@ -29,7 +29,9 @@ function [dists,grads,boundarys] = distancesAndGrads_tableU(q, this_obstacle,del
 %     find_distance(points(i,:), this_obstacle, myspace, expand)
     
     
-    
+
+
+% ==================================================   
     samples=6;
     delta_table2=2*delta_table/samples;
     min_l=1000;
@@ -46,12 +48,20 @@ function [dists,grads,boundarys] = distancesAndGrads_tableU(q, this_obstacle,del
     dists(6) = min_l;
     boundarys(:,6) = boundary_t;
     
+    
+% ==================================================       
 % meng's cubic    
 
 %     [distance, boundaryOnObs,boundaryOnMass ] = find_massDistance(table, this_obstacle, myspace,eul);
 %     points_table=vpa(boundaryOnMass);
 %     dists(6) = vpa(distance);
 %     boundarys(:,6) = vpa(boundaryOnObs);
+% ==================================================   
+
+
+
+
+
 
 
     grads = zeros(6,7);

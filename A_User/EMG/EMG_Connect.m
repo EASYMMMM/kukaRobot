@@ -10,7 +10,9 @@ function [t_server_EMG, flag ] = EMG_Connect( )
 
     t_server_EMG=tcpip('0.0.0.0',30000,'NetworkRole','server');%与第一个请求连接的客户机建立连接，端口号为30000，类型为服务器。
     t_server_EMG.InputBuffersize=100000;
+    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-');
     disp(['正在连接EMG数据发送端...请开启另一个MATLAB',datestr(now)])
+    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-');
     fopen(t_server_EMG);%打开服务器，直到建立一个TCP连接才返回；
     disp(['成功连接EMG数据发送端！',datestr(now)])
     flag = 1;

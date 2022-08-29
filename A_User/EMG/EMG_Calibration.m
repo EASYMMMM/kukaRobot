@@ -36,9 +36,9 @@ HOST_IP = '172.31.75.32';  %本机IP  （连接kuka的IP地址，运行此程序
 % ==================================================================
 %==================================================================
 % 保存路径
-savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\EMG\EMG_Calibration_Data';
 subjectName = 'mly';   %被试姓名
 testNum = '1';             %实验测试序号
+savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\EMG\EMG_Calibration_Data';
 fileName = [savePath,'\EMG_Calibration_',date,'_',subjectName,'_',testNum];
 % ==================================================================
 % ==================================================================
@@ -270,6 +270,7 @@ delete(commObject);
 clear commObject
 
 disp('EMG通信关闭！');
+
 
 %% Save data
 

@@ -58,8 +58,8 @@ while 1
 
  
     i = i+1;
-    pause(1)
-    if i>50
+    pause(0.05)
+    if i>1000
         break;
     end
     
