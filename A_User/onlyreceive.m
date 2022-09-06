@@ -1,13 +1,13 @@
 close all;clear;clc;
 
 
-
+IP_local_IMU = '192.168.11.2';    %本机地址 
 IP_remote_IMU = '192.168.11.1';   
 port_remote_IMU = 5000;
-IP_local_IMU = '192.168.11.2';    %本机地址 
+
 port_local_IMU = 5000;
-%Role_IMU = 'client';
-Role_IMU = 'server';
+Role_IMU = 'client';
+% Role_IMU = 'server';
 
 
 
@@ -42,12 +42,8 @@ while STOPP < 500
                 if ~isempty(which_head_IMU)
                     which_head2_IMU=which_head_IMU(end);
                     this_frame_IMU=data_recv_IMU(which_head2_IMU:end)
-
                 end
-      
             end
-    
-    
 end
 fwrite(t_server_IMU,[88888.888,7654132],'double');%写入数字数据，每次发送360个double
 fclose(t_server_IMU);

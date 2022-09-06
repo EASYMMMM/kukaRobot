@@ -36,7 +36,7 @@ HOST_IP = '172.31.75.32';  %本机IP  （连接kuka的IP地址，运行此程序
 % ==================================================================
 %==================================================================
 % 保存路径
-subjectName = 'mly';   %被试姓名
+subjectName = 'lxd';   %被试姓名
 testNum = '1';             %实验测试序号
 savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\EMG\EMG_Calibration_Data';
 fileName = [savePath,'\EMG_Calibration_',date,'_',subjectName,'_',testNum];
@@ -190,7 +190,7 @@ while 1
             stableData=EMGdata_all(nonezero_stable,:);
             stableDataBottom=round(size(stableData,1)/4)     ; %取全部静息值数据的四分之一到四分之三
             stableDataTop      =round(size(stableData,1)/4*3) ;
-            stableSTD=std(stableData(stableDataBottom:stableDataTop,:));  %方差 最小值
+            stableSTD=std(stableData(stableDataBottom:stableDataTop,:));  %方差 。最小值
 
         disp('请测试者握紧手臂')
     end

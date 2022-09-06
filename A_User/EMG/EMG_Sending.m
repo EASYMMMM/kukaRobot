@@ -23,7 +23,7 @@ clc
 
 %% EMG归一化标定数据 
 % ===========================================================================================
-calibrationData = 'EMG_Calibration_29-Jul-2022_mly_1.mat';
+calibrationData = 'EMG_Calibration_30-Aug-2022_lxd_1.mat';
 
 savePath = 'C:\MMMLY\KUKA_Matlab_client\A_User\EMG\EMG_Calibration_Data';
 fileName = [savePath, '\', calibrationData];
@@ -248,13 +248,7 @@ while 1
     end
     y_EMG_afterfilter=[y_EMG_afterfilter; y_new;];     %全部滤波后的数据
     
-    endTime = toc;
-    if endTime > 30
-        disp('握紧手臂');
-    else
-        disp('放松手臂');
-    end
-    
+    disp('EMG Sending...');
     
     %发送数字数据
     try

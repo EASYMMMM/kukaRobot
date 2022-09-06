@@ -1,10 +1,12 @@
+
+
 %% Example of using KST class for interfacing with KUKA iiwa robots
 % 测试一下仿真转移到KST，过全部障碍
 %
 % 2022年8月10日  参数调整
 % 2022年8月23日 添加IMU
 % 2022年8月24日 更改IMU标定顺序： 先放在桌角静止标定； 随后开启主程序 ； 等待IMU数据接收正常后，将IMU固定在绑带
-% 2022年8月30日 添加EMG控制的变导纳
+
 
 close all;clear;clc;
 warning('off')
@@ -18,82 +20,35 @@ Kp_joint = eye(7)*0;    %比例控制系数3
 k0 =  0.00005;            %障碍物斥力系数 
 FUTURE=3;
 
-% sizeCon = 1/4; %障碍物尺寸计算系数（在find_distance.m中修改）
-% expand = 0.1; %障碍物尺寸计算系数（在find_distance.m中修改）
+sizeCon = 1/4; %障碍物尺寸计算系数（在find_distance.m中修改）
+expand = 0.1; %障碍物尺寸计算系数（在find_distance.m中修改）
 
 
-EMG_ENABLE = 0 ; %EMG在本程序中是否开启： 0为关闭，1为开启
-IMU_ENABLE = 1;  %IMU在本程序中是否开启： 0为关闭，1为开启
-LABEL_ENABLE= 1; %是否在实时程序中进行打标签：0为关闭，1为开启；前提是IMU_ENABLE = 1;
-
-while 1
-if EMG_ENABLE
-    disp(' =========================== ');
-    disp('                  本次实验开启EMG ');
-    disp(' =========================== ');
-else
-    disp(' =========================== ');
-    disp('                  本次实验关闭EMG ');
-    disp(' =========================== ');    
-end
-
-if IMU_ENABLE
-    disp(' =========================== ');
-    disp('                  本次实验开启IMU ');
-    disp(' =========================== ');
-else
-    disp(' =========================== ');
-    disp('                  本次实验关闭IMU ');
-    disp(' =========================== ');    
-end
-break
-end    %打印外设开启状态
+EMG_OPEN = 0 ; %EMG在本程序中是否开启： 0为关闭，1为开启
 
 
 %% IMU INIT
-if IMU_ENABLE
-    
-    IP_remote_IMU = "192.168.11.1"; 
-    port_remote_IMU = 5000;
-    IP_local_IMU = "192.168.11.2"; 
-    port_local_IMU = 5000;
-    Role_IMU = 'client';
-    t_server_IMU = tcpip(IP_remote_IMU,port_remote_IMU,...
-                    'NetworkRole',Role_IMU,...
-                    'LocalPort',port_local_IMU,...
-                    'TimeOut',20,...
-                    'InputBufferSize',8192);
+IP_remote_IMU = "192.168.11.1"; 
+port_remote_IMU = 5000;
+IP_local_IMU = "192.168.11.2"; 
+port_local_IMU = 5000;
+Role_IMU = 'client';
+t_server_IMU = tcpip(IP_remote_IMU,port_remote_IMU,...
+                'NetworkRole',Role_IMU,...
+                'LocalPort',port_local_IMU,...
+                'TimeOut',20,...
+                'InputBufferSize',8192);
 
-    t_server_IMU.InputBuffersize=100000;
+t_server_IMU.InputBuffersize=100000;
 
-    disp(['IMU尚未打开！',datestr(now)])
-    fopen(t_server_IMU);%打开服务器，直到建立一个TCP连接才返回；
-    disp(['IMU已打开！',datestr(now)])
-    
-    data_all_IMU=[];count_right_IMU=0;
-    
-end
+disp(['IMU尚未打开！',datestr(now)])
+fopen(t_server_IMU);%打开服务器，直到建立一个TCP连接才返回；
+disp(['IMU已打开！',datestr(now)])
 
-%% 连接EMG
-if EMG_ENABLE
-    
-    disp(['EMG尚未打开！',datestr(now)])
-    [t_server_EMG, EMG_flag ] = EMG_Connect( );
-    if ~EMG_flag
-        return
-    end
-    disp(['EMG已打开！',datestr(now)])
-    EMG_dataAll = [ ]; 
-    pointerL = 1; %滑动指针
-    pointerR = 1;
-    EMG_used = 8; %使用的EMG传感器
-    EMG_dataAll = [ ]; %记录全部的EMG数据
-    musclePowerAll = [ ]; %记录全部的7通道EMG综合数据
-    admittanceChangeAll = [ ]; %记录全部的 使用高导纳或低导纳
-    EMG_NUM = 7; %采用7个EMG
-    powerThreshold = 0.4; %肌肉收缩阈值
+data_all_IMU=[];count_right_IMU=0;
 
-end
+
+
 
 %% Create the robot object
 ip='172.31.1.147'; % The IP of the controller
@@ -207,7 +162,7 @@ OVER=0;
 all_now_desired_theta=[];all_time=[];all_real_q=[];
 all_now_desired_dtheta=[];all_this_point=[];
 now_desired_dtheta_next=zeros(7,1);now_desired_theta_next=zeros(7,1);v_filt=zeros(6,1);
-all_pos_table=[];all_pos_hand=[];all_q_init=[]; all_pos_hand_v=[]; all_state_label=[];
+all_pos_table=[];all_pos_hand=[];all_q_init=[]; all_pos_hand_v=[];
 all_end_effector_p=[];all_delta=[];
 all_pos=[];all_F=[];this_F_att=[];v_control=zeros(6,1);
 target_joint_velocity=zeros(7,1);
@@ -232,25 +187,26 @@ pos_x=[];pos_y=[];pos_z=[];new_v_filt=[];
 
 % 导纳参数
 % 原本参数
-% k_cartesian = diag([100,100,100,0,0,0])*3;  
-% b_cartesian = diag([100,100,100,0,0,0]*1.5);
-% H_inv          = diag([1,1,1,0,0,0]/10/5*3)   ;
-
+% k_cartesian = diag([100,100,100*2,0,0,0]*1*1)*1.3*5*2*1.5/2
+% b_cartesian = diag([100,100,100*2*1.7,0,0,0]*14*0.707*45/1000*0.7*5*1.4/2*1.4)
+% H_inv          = diag([1,1,1/4,0,0,0]/10/5*3)  
+k_cartesian = diag([100,100,100,0,0,0])*3;  
+b_cartesian = diag([100,100,100,0,0,0]*1.5);
+H_inv          = diag([1,1,1,0,0,0]/10/5*3)   ;
+%% 变导纳
 % %高导纳参数
-
-k_cartesian_high = diag([100,100,100,0,0,0]*1*1)*1.3*5*2/2;  
-b_cartesian_high = diag([100,100,100,0,0,0]*2.5);
-H_inv_high          = diag([1,1,1,0,0,0]/10/5/1.4*3) ; 
+% k_cartesian_high = diag([100,100,100,0,0,0]*1*1)*1.3*5*2/2;
+% b_cartesian_high = diag([100,100,100,0,0,0]*2.5);
+% H_inv_high          = diag([1,1,1,0,0,0]/10/5/1.4*3) ; 
 % 
 % %低导纳参数
-
-k_cartesian_low = diag([100,100,100,0,0,0])*3;    
-b_cartesian_low = diag([100,100,100,0,0,0]*1.5);
-H_inv_low          = diag([1,1,1,0,0,0]/10/5*3)   ;
+% k_cartesian_low = diag([100,100,100,0,0,0])*3;  
+% b_cartesian_low = diag([100,100,100,0,0,0]*1.0);
+% H_inv_low          = diag([1,1,1,0,0,0]/10/5*3)   ;
 % 
-k_cartesian = k_cartesian_low
-b_cartesian = b_cartesian_low
-H_inv          = H_inv_low 
+% k_cartesian = k_cartesian_high
+% b_cartesian = b_cartesian_high
+% H_inv          = H_inv_high 
 
 w_n=(k_cartesian.*H_inv)^0.5;
 w_n=w_n(1,1)
@@ -312,7 +268,7 @@ q_init=what;
 accum_dt=0;high_loop=0;points_dot3=zeros(3,1);contact_force_after=zeros(3,1);
 
 MDZZ=[];all_real_point=[];all_this_point=[];all_this_point_after=[];all_eul=[];all_q_err = [];
-EMG_frame = 1;
+
 all_obs1 = [];
 all_obs2 = [];
 all_obs3 = [];q_control_dot=zeros(7,1);all_att_7_joint_v=[];all_filter_twist=[];all_xe=[]; all_xde=[]; all_a_d=[];
@@ -320,32 +276,29 @@ all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_point3=[];
 pos_hand_pre = zeros(3,1);
 all_total_act = zeros(100,100);
 
-mass_eul = [ 0 0 0]; 
 
 %% Wait for IMU
-if IMU_ENABLE
-    FLAG_IMU=0;
-    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
-    disp('              等待接收IMU数据...');
-    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
-    while FLAG_IMU == 0
-         [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-         if flag == 1
-             FLAG_IMU=1;
-             mass_eul=imu3_data(13:15)*pi/180
-         end
-    end
-    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
-    disp('               成功接收IMU数据');
-    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
-    pause(5)
-    disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
-    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
-    disp(' *  标定完成，请将IMU固定在绑带上  * ');
-    disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
-    disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
-    pause(15)
+FLAG_IMU=0;
+disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
+disp('              等待接收IMU数据...');
+disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
+while FLAG_IMU == 0
+     [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
+     if flag == 1
+         FLAG_IMU=1;
+         mass_eul=imu3_data(13:15)*pi/180
+     end
 end
+disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
+disp('               成功接收IMU数据');
+disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
+pause(5)
+disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
+disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
+disp(' *  标定完成，请将IMU固定在绑带上  * ');
+disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
+disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
+pause(15)
 
 
 %% Main Loop
@@ -369,6 +322,11 @@ while OVER == 0
     which_high_point = find(way_points(3,:) > 0.58);
     way_points(3,which_high_point) = 0.5;
     
+%     if total_act(1) == 10 || total_act(1) == 11 || total_act(1) == 9
+%         disp('will go to end')
+%         OVER=1;
+%         break;
+%     end
     if length(total_act) < FUTURE  %一次规划3步  小于则接近终点
         disp('will go to end')
         OVER=1;
@@ -448,19 +406,27 @@ while OVER == 0
 
 % 底层循环 完成三个路径点
 for i=1:size(points_dot3,2)*2  
+%             if  t_server_self.BytesAvailable>0
+%                     data_recv_self = fread(t_server_self,t_server_self.BytesAvailable/8,'double');%    disp(size(data_recv));
+%                     count_self = count_self + 1;
+%                     which_head_self=find(88887<=data_recv_self);
+%                     which_head2_self=which_head_self(end);
+%                     this_frame_self=zeros(9,1);
+%                     
+%                     this_IMU=data_recv_self(which_head2_self:end);
+%                     this_frame_self(1:length(this_IMU))=this_IMU;
+%                     data_all(:,count_self) = this_frame_self;
+%             end
 
 
-
-if IMU_ENABLE
-    %读取一帧IMU数据 
-     [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-     if flag == 1  
-         mass_eul=imu3_data(13:15)*pi/180; %重物的欧拉角
-     end
-     all_eul=[all_eul; mass_eul;];
-end
+%读取一帧IMU数据 
+ [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
+ if flag == 1  
+     mass_eul=imu3_data(13:15)*pi/180; %重物的欧拉角
+ end
+ all_eul=[all_eul; mass_eul;];
  
-
+% eul = [ 0 0 0]; 
 
 all_obs1 = [all_obs1; obs1];
 all_obs2 = [all_obs2; obs2];
@@ -544,8 +510,11 @@ new_torque=[new_torque; cell2mat(my_t);];
 
 Twist=pinv(Jac.')*my_torque;
 
+
+
+
 F_contact=1*pinv(J_dx_dq.')*my_torque;
-all_F_contact=[all_F_contact F_contact];       
+all_F_contact=[all_F_contact F_contact];       %%!!! ''
 
     
 F_filtered1 = kalmanx(F_contact(1));
@@ -565,80 +534,39 @@ all_filter_twist=[all_filter_twist filter_twist];
 
 % all_filter_twist2=reshape(all_filter_twist,6,42750/6)
 
-     [ pose, nsparam, rconf, jout ] = ForwardKinematics( this_p, robot_type );
-    end_effector_p = pose(1:3,4);
-    eulangel=rotm2eul(pose(1:3,1:3));
-
-    real_end_car=[end_effector_p; eulangel';];
+         [ pose, nsparam, rconf, jout ] = ForwardKinematics( this_p, robot_type );
+        end_effector_p = pose(1:3,4);
+        eulangel=rotm2eul(pose(1:3,1:3));
+        
+        real_end_car=[end_effector_p; eulangel';];
 
 
 
 %% real time interaction
 
-    if IMU_ENABLE 
-        %重物 
-        mass_eul_ZYX = [mass_eul(3) mass_eul(2) mass_eul(1)];
-        R_mass = eul2rotm(mass_eul_ZYX);
-        %重物方向沿末端执行器坐标系的x轴负方向 默认重物起始点为机械臂末端向下8cm
-        pos_table = R_mass  * (Pmass/2) + (end_effector_p + [ 0; 0 ; -0.08]) ; 
-        pos_hand = R_mass  * (Pmass) + (end_effector_p + [ 0; 0 ; -0.08]) ; % 记录手部的位置，与pos_table相比，多了半个桌子的长度
-        pos_hand_v = (pos_hand - pos_hand_pre) ./ dt_real; % 记录手部的速度
-        pos_hand_pre = pos_hand;
-        delta = R_mass  * (Pmass/2);
-        all_end_effector_p=[all_end_effector_p end_effector_p];
-        all_pos_table=[all_pos_table pos_table];  
-        all_pos_hand=[all_pos_hand pos_hand];  
-        all_pos_hand_v = [all_pos_hand_v pos_hand_v];
-        %         R_etow=pose(1:3,1:3);       % 末端执行器到world
-        %         R_ttow=eul2rotm(eul);      % 重物到world
-        %         R_ttoe=R_ttow*(R_etow');  
-        %         pos_table = end_effector_p+R_ttoe*[-5*0.05; 0; 0;];
-        if LABEL_ENABLE
-%             ii = 2650;
-%             end_effector_p = all_end_effector_p(:,ii);
-%             pos_table = all_pos_table(:,ii);
-%             pos_hand_v = all_pos_hand_v(:,ii);
-%             pos_hand = all_pos_hand(:,ii);
-            obs_pos = all_space(cartis_obs,:);% 所有障碍物的坐标
-            [~,which_obs]=min(sum(abs(obs_pos(:,1:2)-pos_table(1:2)'),2));% 找到距离桌子最近的障碍物的索引
-            center_s=cartis_obs(which_obs);
-            center_obs=myspace{center_s,3}; % 找到相对最近的障碍
-            
-            % 计算手部相对障碍物的速度与位置和机械臂末端相对障碍物的位置
-            delta_v_hand = pos_hand_v;  
-            delta_pos_hand = pos_hand - center_obs';  
-            delta_pos_robot = end_effector_p + [ 0; 0 ; -0.08] - center_obs';  
-            
-            if center_s == 115 || center_s == 51 % 如果是桌子短边的障碍，还需要旋转一下xy，目前假设主要在障碍的xz空间运动
-                delta_v_hand([1 2],:) = delta_v_hand([2 1],:);
-                delta_pos_hand([1 2],:) = delta_pos_hand([2 1],:);
-            end
-
-            if center_s > 66  % 如果障碍在上方，需要沿着z轴镜像一下
-                delta_v_hand(3,:) = -delta_v_hand(3,:);
-                delta_pos_hand(3,:) = -delta_pos_hand(3,:);
-                delta_pos_robot(3,:) = -delta_pos_robot(3,:);
-            end
-            
-            % 标签；三个v_state：hand靠近障碍物---1；一样----2；robot靠近障碍物----3；
-            v_state = 0; % 表示不确定
-            if abs(delta_pos_robot(3,:) - delta_pos_hand(3,:)) <= 0.05
-                % 如果桌子两端的高度差值不超过 5 cm，则是
-                v_state = 2;
-            elseif delta_pos_robot(3,:) - delta_pos_hand(3,:) >= 0.10
-                % 如果手靠近障碍物，则是
-                v_state = 1;
-            elseif delta_pos_robot(3,:) - delta_pos_hand(3,:) <= -0.10
-                % 如果机器人靠近障碍物，则是
-                v_state = 3;    
-            end
-            state_label = [which_obs; v_state];
-            all_state_label = [all_state_label, state_label]; % 第一行是当前障碍物 第二行是v_state
-        end
-    else
-        pos_table = end_effector_p;      %【【【【【【 不考虑重物 】】】】】
-        delta=pos_table -end_effector_p;  %重物位置和末端位置之差
-    end
+    % =============  计算重物位姿 =================
+    mass_eul_ZYX = [mass_eul(3) mass_eul(2) mass_eul(1)];
+    R_mass = eul2rotm(mass_eul_ZYX);
+    %重物方向沿末端执行器坐标系的x轴负方向 默认重物起始点为机械臂末端向下8cm
+    pos_table = R_mass  * (Pmass/2) + (end_effector_p + [ 0; 0 ; -0.08]) ; 
+    pos_hand = R_mass  * (Pmass) + (end_effector_p + [ 0; 0 ; -0.08]) ; % 记录手部的位置，与pos_table相比，多了半个桌子的长度
+    pos_hand_v = (pos_hand - pos_hand_pre) ./ dt_real; % 记录手部的速度
+    pos_hand_pre = pos_hand;
+    delta = R_mass  * (Pmass/2);
+    all_end_effector_p=[all_end_effector_p end_effector_p];
+    all_pos_table=[all_pos_table pos_table];  
+    all_pos_hand=[all_pos_hand pos_hand];  
+    all_pos_hand_v = [all_pos_hand_v pos_hand_v];
+    %         R_etow=pose(1:3,1:3);       % 末端执行器到world
+    %         R_ttow=eul2rotm(eul);      % 重物到world
+    %         R_ttoe=R_ttow*(R_etow');  
+    %         pos_table = end_effector_p+R_ttoe*[-5*0.05; 0; 0;];
+    
+    %   =============  计算重物位姿 END =================
+    
+    
+    % pos_table = end_effector_p;      %【【【【【【 不考虑重物 】】】】】
+    %delta=pos_table -end_effector_p;  %重物位置和末端位置之差【【【【【【 不考虑重物 】】】】】
     
     all_delta=[all_delta delta];
 
@@ -698,7 +626,6 @@ all_filter_twist=[all_filter_twist filter_twist];
     
         F=J*q0_dot;  %转换为末端受力
         all_F=[all_F F];
-        
         target_v3=points_dot3(:,this_point_after);
         all_target_v3=[all_target_v3 target_v3];
         qd_dot = J_pinv * points_dot3(:,this_point_after) + q0_dot;  %斥力+参考轨迹 --》关节速度
@@ -709,53 +636,19 @@ all_filter_twist=[all_filter_twist filter_twist];
 
         q_init = q_init + qd_dot*Ts;      % 更新当前目标位置    %Euler integration 
         all_q_init=[all_q_init q_init];
-        q_err = q_init - q;                      %当前位置与目标位置偏差
-        control_signal = Kp_joint*q_err; %比例控制
+        q_err = q_init - q;                     
+        control_signal = Kp_joint*q_err; 
         all_q_err = [all_q_err q_err ];
-        q_control_dot = control_signal + qd_dot; %比例控制
+        q_control_dot = control_signal + qd_dot;
         all_qd_dot=[all_qd_dot qd_dot];
         all_control_signal=[all_control_signal control_signal];
-        v_control=J67*q_control_dot;    %将目标速度转到笛卡尔空间
+        v_control=J67*q_control_dot;
         all_v_control=[all_v_control v_control];
 
         target_joint_velocity_next=q_control_dot;
         %     fuck=J_pinv * points_dot3(:,i_theta);
          
-%         %********************************* 接收EMG数据********************************************
-        if EMG_ENABLE
-            if  t_server_EMG.BytesAvailable>0
-                EMG_data_recv = fread(t_server_EMG,t_server_EMG.BytesAvailable/8,'double');%  接收double类型的数据
-                %   count_self = count_self + 1;
-                EMG_data_head=find(88887<=EMG_data_recv);
-                which_head2     =EMG_data_head(end);
-                EMG_thisFrame =EMG_data_recv(which_head2+1:end);  %读取最新一帧数据
-                EMG_dataAll      = [EMG_dataAll ; EMG_thisFrame'];
 
-                totalPower = 0;
-                for k = 1:EMG_NUM
-                    totalPower = totalPower +  EMG_thisFrame(k)^2;
-                end
-                musclePower = sqrt(totalPower);
-                musclePowerAll = [musclePowerAll ; musclePower];
-
-                %P = find( EMG_AllData(pointerL:pointerR, EMG_used) >  powerThreshold);
-                if musclePower > powerThreshold %肌肉收缩
-                    k_cartesian = k_cartesian_high;  %高导纳参数
-                    b_cartesian = b_cartesian_high;  %高导纳参数
-                    H_inv = H_inv_high;
-                    admittanceChangeAll = [ admittanceChangeAll ; 1,EMG_frame];  %EMG可能会掉帧，同时保存帧数
-                else
-                    k_cartesian = k_cartesian_low;   %高导纳参数
-                    b_cartesian = b_cartesian_low;   %低导纳参数
-                    H_inv = H_inv_low;
-                    admittanceChangeAll = [ admittanceChangeAll ; 0,EMG_frame];
-                end
-            end
-            EMG_frame = EMG_frame+1;
-        end
-%         
-        
-     %********************************* 接收EMG数据 END********************************************
 %% 33333333333333333333333333333333333333333333333333333333333333333333333333333333
 
         [ pose, nsparam, rconf, jout ] = ForwardKinematics( q_init, robot_type );
@@ -783,9 +676,9 @@ all_filter_twist=[all_filter_twist filter_twist];
 %     filter_twist(3) = 20;
     
 %     filter_twist=zeros(6,1);
-        all_a_d=[all_a_d a_d];
+    all_a_d=[all_a_d a_d];
     
-        xe = - target_cart + real_end_car + J67*target_joint_velocity*dt; %3 1
+       xe=-target_cart+real_end_car+J67*target_joint_velocity*dt; %3 1
        
         all_xe=[all_xe xe];
         xde=-J67*target_joint_velocity+v_filt+a_d*dt;
@@ -803,10 +696,11 @@ all_filter_twist=[all_filter_twist filter_twist];
      rate_xdetjia=[rate_xdetjia xdetjia];
      rate_target=[rate_target J67*target_joint_velocity_next];
      att_7_joint_v=pinv(Jac)*[v_filt(1:3); zeros(3,1)];
-    % att_7_joint_v=pinv(J_dx_dq)*v_filt(1:3);
+%      att_7_joint_v=pinv(J_dx_dq)*v_filt(1:3);
     all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
-    % add attandance control
-    % safe_input7=q_control_dot;
+    
+% add attandance control
+% safe_input7=q_control_dot;
     safe_input7=att_7_joint_v;
      %% SAFE  限幅
     future_pos_7=q_init'+safe_input7*dt;
@@ -894,20 +788,11 @@ iiwa.net_turnOffServer()
 disp('KUKA关闭!');
 % pause(10)
 
-if IMU_ENABLE
-    fwrite(t_server_IMU,[88888.888,7654321],'double');%写入数字数据，每次发送360个double
-    fclose(t_server_IMU);
-    disp('IMU关闭！！');
-end
-    
-if EMG_ENABLE
-    fwrite(t_server_EMG,[88888.888,7654321],'double');
-    fclose(t_server_EMG);
-    delete(t_server_EMG);
-    clear t_server_EMG
-    disp('EMG接收通道关闭！');
-end
 
+fwrite(t_server_IMU,[88888.888,7654321],'double');%写入数字数据，每次发送360个double
+fclose(t_server_IMU);
+disp('IMU关闭！！');
+    
 figure;
 plot(all_F');hold on;
 
@@ -935,22 +820,22 @@ legend('1','2','3','4','5','6');
 % sychronize;
 % save('20220501yl3_stop.mat','sychronize')
 % save('20220501yl3_stop_all.mat')
-return 
+
 
 
 %% Save Data [  先改文件名！ ]
 
 
-
+return 
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = '-v39（0906加入v-state的自动标注-4）';
+TestNum = '-v33（GPR采数据3）';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
-return
+
 %% Draw with maze  [  先改文件名！ ]
 
-
+return
 
 
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
@@ -1049,10 +934,7 @@ for  ii = 1:totalLen
     
     view(60,40) ;
     axis([-0.5,1.2 ,-1,1, 0,0.9]);
-    if LABEL_ENABLE
-        txt = ['obs-now: ', num2str(all_state_label(1, ii)), char(10),'v-state: ', num2str(all_state_label(2, ii))];
-        text(centerPoint(1), centerPoint(2), centerPoint(3), txt, 'Fontsize', 14);
-    end
+
     xlabel("X"); ylabel('Y');  zlabel('Z');
     title(["HRC Maze",TestNum]);
     %%
@@ -1111,3 +993,6 @@ for  ii = 1:totalLen
     figure_i = figure_i+1;
 end
 
+
+
+    

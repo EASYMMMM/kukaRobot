@@ -30,11 +30,12 @@ function  [jPosd , eefError , eefdError , eefddError  ] = admittanceController(e
      eefCartNow = eefT(1:3,4);  %当前末端位置
         
      ep = eefTargetNew - eefCartNow;   %当前位置与更新后的目标位置的偏差
-     controlSignal = eefTargetdNew ;
+     
+%      controlSignal = eefTargetdNew ;
     
      JVel = eefJacobian(1:3,:);    
     
-     jPosd = pinv(JVel) * controlSignal;
+     jPosd = pinv(JVel) * eefTargetdNew;
      jPosdLast = jPosd;
 %      iiwa.sendJointsVelocities(num2cell(jPosd));  %输出关节速度
 

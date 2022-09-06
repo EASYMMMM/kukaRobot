@@ -1,4 +1,4 @@
-function [ qs ]=gen_InverseKinematics( qin, Tt, TefTool,n,lambda )
+function [ qs ]=gen_InverseKinematics( qin, Tt, TefTool , n , lambda )
 %% This is a DLS sovler of the inverse kinematics for the KUKA iiwa 7 R 800 robot with flange "Medien-Flansch Touch pneumatisch"
 % If you have a different flange or if you are utilizing the iiwa 14 R 820 this funtion can also be used
 % Please refer to instructions in the file "directKinematics.m" 
