@@ -1,39 +1,40 @@
-function [q , R , series_state , via_points ,  which_state , space , cartis_obs , OBSTACLE]= RL2m3m3_maze_big(where_robot_3,last_space,CHANGE,lastq,lastR,num_obs,slope_IMU,OBSTACLE, cartis_obs)
-% æ ¹æ®å½“å‰åœ°å›¾å’Œå½“å‰ä½ç½®ï¼Œæ‰¾å‡ºè·¯å¾„æœ€ä¼˜è§£
+function [q , R , series_state , via_points ,  which_state , space , cartis_obs , OBSTACLE]= RL2m3m3_maze_big_v0(where_robot_3,last_space,CHANGE,lastq,lastR,num_obs,slope_IMU,OBSTACLE, cartis_obs)
+% ¸ù¾Ýµ±Ç°µØÍ¼ºÍµ±Ç°Î»ÖÃ£¬ÕÒ³öÂ·¾¶×îÓÅ½â£¬ÄÚ»·½±ÀøÓëÆäËûÎ»ÖÃ½±ÀøÒ»ÖÂ
 % ------------ parameters: --------------------
-% where_robot_3: æœºå™¨äººæœ«ç«¯ä½ç½® 3*1
-% last_spaceï¼š å…ˆå‰åˆå§‹åŒ–å¥½çš„ç©ºé—´  ï¼ˆmyspace)
-% CHANGE: ä¸º0æ—¶é‡æ–°åˆå§‹åŒ–ï¼Œ ä¸º1æ—¶ä¸å˜
-% lastqï¼š ä¸Šæ¬¡çš„è®­ç»ƒå¥½çš„qè¡¨
-% lastRï¼šä¸Šæ¬¡è®­ç»ƒå¥½çš„Rewardè¡¨
-% num_obsï¼šéšœç¢åºåˆ—ç¼–å·
+% where_robot_3: »úÆ÷ÈËÄ©¶ËÎ»ÖÃ 3*1
+% last_space£º ÏÈÇ°³õÊ¼»¯ºÃµÄ¿Õ¼ä  £¨myspace)
+% CHANGE: Îª0Ê±ÖØÐÂ³õÊ¼»¯£¬ Îª1Ê±²»±ä
+% lastq£º ÉÏ´ÎµÄÑµÁ·ºÃµÄq±í
+% lastR£ºÉÏ´ÎÑµÁ·ºÃµÄReward±í
+% num_obs£ºÕÏ°­ÐòÁÐ±àºÅ
 % ----------------------------------------------
 % ------------ returns: ------------------------
-% qï¼š è®­ç»ƒå¥½çš„Qè¡¨  264*264  åœ°å›¾å¼•å¯¼   è¡Œï¼šå½“å‰ä½ç½®  åˆ—ï¼šä¸‹ä¸€æ­¥ä½ç½®    æ•°å€¼ä»£è¡¨è¶‹å‘ç¨‹åº¦ï¼Œ0ä¸èƒ½èµ°     
-% Rï¼šRewardè¡¨ 264*264 èµ°ä¸€æ­¥æ‰£ä¸€åˆ† åˆ°ç»ˆç‚¹å¥–åŠ±100åˆ†ï¼Œä¸å¯è¾¾çš„ä¸ºè´Ÿæ— ç©·
-% series_stateï¼šè·¯å¾„åºåˆ—
-% via_point: è·¯å¾„åºåˆ—ä¸­å„ä¸ªç‚¹ä¸­å¿ƒ
-% which_stateï¼šå½“å‰æ‰€å¤„åŒºåŸŸ
+% q£º ÑµÁ·ºÃµÄQ±í  264*264  µØÍ¼Òýµ¼   ÐÐ£ºµ±Ç°Î»ÖÃ  ÁÐ£ºÏÂÒ»²½Î»ÖÃ    ÊýÖµ´ú±íÇ÷Ïò³Ì¶È£¬0²»ÄÜ×ß     
+% R£ºReward±í 264*264 ×ßÒ»²½¿ÛÒ»·Ö µ½ÖÕµã½±Àø100·Ö£¬²»¿É´ïµÄÎª¸ºÎÞÇî
+% series_state£ºÂ·¾¶ÐòÁÐ
+% via_point: Â·¾¶ÐòÁÐÖÐ¸÷¸öµãÖÐÐÄ
+% which_state£ºµ±Ç°Ëù´¦ÇøÓò
 % space: myspace
-% cartis_obsï¼šåŽŸå§‹éšœç¢æ‰€åœ¨åŒºåŸŸ
-% OBSTACLEï¼šå…¨éƒ¨ä¸å¯è¾¾åŒºåŸŸ
+% cartis_obs£ºÔ­Ê¼ÕÏ°­ËùÔÚÇøÓò
+% OBSTACLE£ºÈ«²¿²»¿É´ïÇøÓò
 % ----------------- END ------------------------------
 
 
 % slope_IMU = 1 means HlowRhigh, = 0 means no change = -1 means HhighRlow
 % 
-% 231 0ä»£è¡¨downå¼€å±€
+
 
 inner_obs_down = [3, 14, 15, 36:42, 31, 20, 9];
 inner_obs_up = inner_obs_down + 66;
 inner_obs = [inner_obs_down; inner_obs_up];
-target=10;  %æœ€ç»ˆç›®æ ‡ç‚¹
+    
+target=10;  
 
 
 if CHANGE == 0
-    MAZE=2221;  %åœ°å›¾ç§å­  å·¦2 ä¸­2 å³2
+    MAZE=2221;  %Ëæ»úÖÖ×Ó
 %     [space cartis_obs]=get_init_space_maze(MAZE);
-    [space cartis_obs]=get_init_big_maze_v1(2221); %v1æ˜¯æ–°åœ°å›¾
+    [space cartis_obs]=get_init_big_maze_v1(2221); %v1ÊÇÐÂµØÍ¼
 %     all_space=cell2mat(space(:,3:4));
 %     figure;
 %     for node = 1:size(space,1)
@@ -45,6 +46,7 @@ if CHANGE == 0
 %     end
 %     xlabel('x')
 %     ylabel('y')
+%     zlim([0, 1])
     
 
     if num_obs == 0
@@ -68,33 +70,21 @@ if CHANGE == 0
             end          
         end
         OBSTACLE=OBSTALE; % OBSTACLE means the dead state including table caused, while OBSTALE only care about feasibility
-        for i=1:66
+       for i=1:66
             R(i,i+66)=-1; %double up
             R(i,i+66*3)=-3; %H up R stay
             R(i,i+66*2)=-3; %R up H stay
             if i-11>0
                 R(i,i-11)=-1;%forward
-                if ~isempty(find(inner_obs == i-11))
-                    R(i,i-11)=-3;%forward
-                end
             end
             if i+11<66+1
                 R(i,i+11)=-1;%backward
-                if ~isempty(find(inner_obs == i+11))
-                    R(i,i+11)=-3;%backward
-                end
             end
             if mod(i,11)~=1
                 R(i,i-1)=-1;%left
-                if ~isempty(find(inner_obs == i-1))
-                    R(i,i-1)=-3;%left
-                end
             end
             if mod(i,11)~=0
                 R(i,i+1)=-1;%right
-                if ~isempty(find(inner_obs == i+1))
-                    R(i,i+1)=-3;%right
-                end
             end
         end
         
@@ -104,27 +94,15 @@ if CHANGE == 0
             R(i,i+66*1)=-3; %R up H stay
             if i-11>66
                 R(i,i-11)=-1;
-                if ~isempty(find(inner_obs == i-11))
-                    R(i,i-11)=-3;%forward
-                end
             end
             if i+11<66*2-1
                 R(i,i+11)=-1;
-                if ~isempty(find(inner_obs == i+11))
-                    R(i,i+11)=-3;%backward
-                end
             end
             if mod(i,11)~=1
                 R(i,i-1)=-1;
-                if ~isempty(find(inner_obs == i-1))
-                    R(i,i-1)=-3;%left
-                end
             end
             if mod(i,11)~=0
                 R(i,i+1)=-1;
-                if ~isempty(find(inner_obs == i+1))
-                    R(i,i+1)=-3;%right
-                end
             end
         end
         
@@ -134,27 +112,15 @@ if CHANGE == 0
             R(i,i-66*1)=-1; %double up
             if i-11>66*2
                 R(i,i-11)=-1;
-                if ~isempty(find(inner_obs == (i-11) - 66))
-                    R(i,i-11)=-3;%forward
-                end
             end
             if i+11<66*3+1
                 R(i,i+11)=-1;
-                if ~isempty(find(inner_obs == (i+11) - 66))
-                    R(i,i+11)=-3;%backward
-                end
             end
             if mod(i,11)~=1
                 R(i,i-1)=-1;
-                if ~isempty(find(inner_obs == (i-1) - 66))
-                    R(i,i-1)=-3;%left
-                end
             end
             if mod(i,11)~=0
                 R(i,i+1)=-1;
-                if ~isempty(find(inner_obs == (i+1) - 66))
-                    R(i,i+1)=-3;%right
-                end
             end
         end
         
@@ -164,32 +130,20 @@ if CHANGE == 0
             R(i,i-66*2)=-1; %double up
             if i-11>66*3
                 R(i,i-11)=-1;
-                if ~isempty(find(inner_obs == (i-11) - 66*3))
-                    R(i,i-11)=-3;%forward
-                end
             end
             if i+11<66*4+1
                 R(i,i+11)=-1;
-                if ~isempty(find(inner_obs == (i+11) - 66*3))
-                    R(i,i+11)=-3;%backward
-                end
             end
             if mod(i,11)~=1
                 R(i,i-1)=-1;
-                if ~isempty(find(inner_obs == (i-1) - 66*3))
-                    R(i,i-1)=-3;%left
-                end
             end
             if mod(i,11)~=0;
                 R(i,i+1)=-1;
-                if ~isempty(find(inner_obs == (i+1) - 66*3))
-                    R(i,i+1)=-3;%right
-                end
             end
         end 
         R(target-1,target)=R_goal;R(target+1,target)=R_goal;R(target+66,target)=R_goal;R(target+66*2,target)=R_goal;
         R(target+66*3,target)=R_goal;R(target+11,target)=R_goal;      
-        %OBSTALE åŒ…å«äº† 1~264, æ˜¯æ ¹æ®feasibilityæ¥çš„
+        %OBSTALE °üº¬ÁË 1~264, ÊÇ¸ù¾ÝfeasibilityÀ´µÄ
         for obs0 = 1:length(OBSTALE)  % layer 1 2
             obs=OBSTALE(obs0);
             for i=1:66*4
@@ -286,27 +240,15 @@ if CHANGE == 0
             q=R_goal*q/g;
         end
     end
-s=which_state;  
+
 % =======================================================================================    
-% ========================== å¦‚æžœä¸éœ€è¦å˜æ›´çŽ¯å¢ƒ ================================================
+% ========================== Èç¹û²»ÐèÒª±ä¸ü»·¾³ ================================================
 % =================================================================================
 else
 
     space=last_space;
     all_space=cell2mat(space(:,3));
-    [y, which_state]=min(sum(abs(all_space-where_robot_3.'),2)); %note that do not get in the obstacles
-    % slope_IMU--1--äººé«˜     slope_IMU--2--æœºå™¨äººé«˜
-    if slope_IMU == 1 && which_state <=66
-        now_state = which_state+66*3;
-
-    elseif slope_IMU == 2 && which_state >= 67 && which_state <= 132
-        now_state = which_state+66;
-   
-    else
-        now_state = which_state;
-    end
-    
-    
+    [y,which_state]=min(sum(abs(all_space-where_robot_3.'),2)); %note that do not get in the obstacles
     if ismember(which_state,OBSTACLE) 
             if which_state>66
                 which_state=which_state+66;
@@ -333,11 +275,10 @@ else
 
     q=lastq;
     R=lastR;
-    s=now_state;  
 end
 
 
-
+s=which_state;  % ¸ù¾ÝIMUµ÷Õû
 % s=201
 %s=28;
 series_state=[s];
@@ -387,3 +328,4 @@ end
 
 
 end
+

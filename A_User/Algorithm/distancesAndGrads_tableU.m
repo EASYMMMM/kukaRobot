@@ -27,17 +27,15 @@ function [dists,grads,boundarys] = distancesAndGrads_tableU(q, this_obstacle,del
     
     points;
 %     find_distance(points(i,:), this_obstacle, myspace, expand)
-    
-    
-
-
+   
 % ==================================================   
     samples=6;
     delta_table2=2*delta_table/samples;
     min_l=1000;
     for each = 1:samples
         this_point_table=points(5,:)'+delta_table2*each;
-        [distance_t, this_boundary_t] = find_distance(this_point_table, this_obstacle, myspace, 0);
+%         [distance_t, this_boundary_t] = find_distance(this_point_table, this_obstacle, myspace, 0);
+        [distance_t, this_boundary_t] = find_distance_table(this_point_table, this_obstacle, myspace, 0);
         if min_l>distance_t
             min_l=distance_t;
             points_table=this_point_table;

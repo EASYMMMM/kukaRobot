@@ -12,7 +12,7 @@ warning('off')
 %% 调参 
 timex = 5; %运行时间系数
 
-Ts = 0.01;
+Ts = 0.015;
 
 Kp_joint = eye(7)*0;    %比例控制系数3
 k0 =  0.00005;            %障碍物斥力系数 
@@ -138,7 +138,7 @@ disp('Moving first joint of the robot using a sinusoidal function')
 %% high level initialize 
 CHANGE=0;  %地图没发生变化  初始
 now_pos_3=[-0.125 -0.675 0.2]';  %机器人初始点
-[lastq,lastR,total_act ,way_points ,which_state_now, myspace, cartis_obs ,OBSTACLE]= RL2m3m3_maze_big(now_pos_3,0,CHANGE,0,0,0,0,[]);
+[lastq,lastR,total_act ,way_points ,which_state_now, myspace, cartis_obs ,OBSTACLE]= RL2m3m3_maze_big_v0(now_pos_3,0,CHANGE,0,0,0,0,[]);
 last_state=which_state_now;
 last_space=myspace;
 last_q=lastq;
@@ -237,20 +237,22 @@ pos_x=[];pos_y=[];pos_z=[];new_v_filt=[];
 % H_inv          = diag([1,1,1,0,0,0]/10/5*3)   ;
 
 % %高导纳参数
-
 k_cartesian_high = diag([100,100,100,0,0,0]*1*1)*1.3*5*2/2;  
 b_cartesian_high = diag([100,100,100,0,0,0]*2.5);
 H_inv_high          = diag([1,1,1,0,0,0]/10/5/1.4*3) ; 
 % 
 % %低导纳参数
-
 k_cartesian_low = diag([100,100,100,0,0,0])*3;    
 b_cartesian_low = diag([100,100,100,0,0,0]*1.5);
 H_inv_low          = diag([1,1,1,0,0,0]/10/5*3)   ;
+
 % 
-k_cartesian = k_cartesian_low
-b_cartesian = b_cartesian_low
-H_inv          = H_inv_low 
+% k_cartesian = k_cartesian_low
+% b_cartesian = b_cartesian_low
+% H_inv          = H_inv_low 
+k_cartesian = diag([100,100,100*2,0,0,0]*1*1)*1.3*5*2*1.5/2
+b_cartesian = diag([100,100,100*2*1.7,0,0,0]*14*0.707*45/1000*0.7*5*1.4/2*1.4)
+H_inv = diag([1 ,1 ,1/4,0,0,0]/10/5*3)  
 
 w_n=(k_cartesian.*H_inv)^0.5;
 w_n=w_n(1,1)
@@ -316,7 +318,7 @@ EMG_frame = 1;
 all_obs1 = [];
 all_obs2 = [];
 all_obs3 = [];q_control_dot=zeros(7,1);all_att_7_joint_v=[];all_filter_twist=[];all_xe=[]; all_xde=[]; all_a_d=[];
-all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_point3=[];
+all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_point3=[];all_points_dot3=[];
 pos_hand_pre = zeros(3,1);
 all_total_act = zeros(100,100);
 
@@ -356,20 +358,57 @@ disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
 disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
 tic
 
+slope_IMU = 0;
 
+all_length_points = [];
+%%%%%%%%%%%%%%Table%%%%%%%%%%%
+future_obs_table = ...
+    {[13, 14, 80];...
+    [101, 102];...
+    [49, 38];...
+    [117, 106];...
+    [42, 43];...
+    [86, 87];};
+
+obs_index = 1;
 while OVER == 0
     
     CHANGE=1;   %CHANGE =1 没变
     start_position=end_effector_p;
      
     %更新轨迹
-    [lastq,lastR,total_act way_points which_state_now myspace cartis_obs OBSTACLE]= RL2m3m3_maze_big(start_position,last_space,CHANGE,last_q,last_R,0,0,OBSTACLE, cartis_obs);
+    [lastq,lastR,total_act way_points which_state_now myspace cartis_obs OBSTACLE]= RL2m3m3_maze_big_v0(start_position,last_space,CHANGE,last_q,last_R,0,0,OBSTACLE, cartis_obs);
+    
+    % 确定FUTURE
+    FUTURE = 3;
+    obs_index
+    if obs_index <= 6
+        % 转到几何空间
+        index_temp = find(total_act >= 133 & total_act <= 198);
+        total_act(:, index_temp) = total_act(:, index_temp) - 66;
+        index_temp = find(total_act >= 199 & total_act <= 264);
+        total_act(:, index_temp) = total_act(:, index_temp) - 66*3;
+        
+        table_temp = future_obs_table{obs_index, 1};
+        index_temp = [];
+        for space_temp = table_temp
+            index_temp = [index_temp, find(total_act == space_temp)];
+        end
+        
+        if isempty(index_temp)
+            FUTURE = 3;
+        else
+            FUTURE = max(index_temp);
+        end
+        
+    end
 
+    FUTURE = 3;
     %lower please 这里是为了不想让机械臂末端抬得太高
     which_high_point = find(way_points(3,:) > 0.58);
     way_points(3,which_high_point) = 0.5;
     
-    if length(total_act) < FUTURE  %一次规划3步  小于则接近终点
+    if total_act(1) == 10 || total_act(1) == 11 ||total_act(1) == 9  %9 10 11 为终点
         disp('will go to end')
         OVER=1;
     end
@@ -384,22 +423,11 @@ while OVER == 0
         start_end_points=[start_position way_points(:,FUTURE)];
     else
         start_end_points=[start_position way_points(:,end)];
-        OVER=1;
+        LABEL_ENABLE=1;
     end
     
-    data_table=[]; % 1 table up 0 middle -1 down  重物的期望姿态
-%     for each_s = 1:FUTURE
-%         each_state=total_act(each_s);
-%         if each_state <=132
-%             data_table=[data_table 0];
-%         elseif each_state <=198
-%             data_table=[data_table -1];
-%         else
-%             data_table=[data_table 1];
-%         end
-%     end
-%             
-%     data_table        
+    data_table=[]; 
+    
     total_act
     start_end_points
     
@@ -418,13 +446,13 @@ while OVER == 0
     
     v_end01=(start_end_points(:,end)-start_end_points(:,1))/norm(start_end_points(:,end)-start_end_points(:,1));
     
-    obs1
-    obs2
-    obs3
+%     obs1
+%     obs2
+%     obs3
     
 
     
-    v_end=0.1*v_end01; %路径终点期望速度
+    v_end=0.08*v_end01; %路径终点期望速度
 %     desired_v32=[ v_control(1:3) v_end];
 % 生成从当前位置到路径终点（往下三个路径点）的直线轨迹
     desired_v32=[ points_dot3(:,end) v_end];  
@@ -437,36 +465,37 @@ while OVER == 0
     tvec = 0:Ts:T_tot;
     tpts = 0:T_tot/(size(start_end_points,2)-1):T_tot;
 
-    [points3,points_dot3,points_dotdot3,pp3] = cubicpolytraj(start_end_points,tpts,tvec,...
-                'VelocityBoundaryCondition', desired_v32);     
+    [points3,points_dot3,points_dotdot3,pp3] = cubicpolytraj(start_end_points,tpts,tvec,...end_effector_p
+                'VelocityBoundaryCondition', desired_v32); 
 
     t=0;
 
     all_q=[];
     round_over=0;accum_dt=0;diminish=0;delete_point=1;accu_point=1;
-       all_point3 = [ all_point3 points3];
+    all_point3 = [ all_point3 points3];
+    all_points_dot3 = [all_points_dot3 points_dot3];
 
 % 底层循环 完成三个路径点
 for i=1:size(points_dot3,2)*2  
 
 
 
-if IMU_ENABLE
-    %读取一帧IMU数据 
-     [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
-     if flag == 1  
-         mass_eul=imu3_data(13:15)*pi/180; %重物的欧拉角
-     end
-     all_eul=[all_eul; mass_eul;];
-end
+    if IMU_ENABLE
+        %读取一帧IMU数据 
+         [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
+         if flag == 1  
+             mass_eul=imu3_data(13:15)*pi/180; %重物的欧拉角
+         end
+         all_eul=[all_eul; mass_eul;];
+    end
  
 
 
-all_obs1 = [all_obs1; obs1];
-all_obs2 = [all_obs2; obs2];
-all_obs3 = [all_obs3; obs3];
+    all_obs1 = [all_obs1; obs1];
+    all_obs2 = [all_obs2; obs2];
+    all_obs3 = [all_obs3; obs3];
 
-
+    all_length_points=[all_length_points, size(points3,2)];
 
  %% CONTROL   
     if i == 1
@@ -488,47 +517,53 @@ all_obs3 = [all_obs3; obs3];
     all_jpos=[all_jpos; this_p;];  
     
     %进度积累项
-vector=points3(:,end)-points3(:,1);      
-unit_vector=vector/norm(vector);
-now_vec=end_effector_p-points3(:,1);   
-angle=acos(dot(vector,now_vec)/(norm(vector)*norm(now_vec)));
-now_vec_proj=now_vec*cos(angle);
-run_rate=norm(now_vec_proj)/norm(vector);
-real_point=ceil(run_rate*size(points_dot3,2));
-  
-if isnan(real_point)
-    real_point=1;
-end
+    vector=points3(:,end)-points3(:,1);      
+    unit_vector=vector/norm(vector);
+    now_vec=end_effector_p-points3(:,1);   
+    angle=acos(dot(vector,now_vec)/(norm(vector)*norm(now_vec)));
+    now_vec_proj=now_vec*cos(angle);
+    run_rate=norm(now_vec_proj)/norm(vector);
+    real_point=ceil(run_rate*size(points_dot3,2));
+
+    if isnan(real_point)
+        real_point=1;
+    end
  
     
     if real_point >= size(points_dot3,2)
         real_point = size(points_dot3,2);
+        obs_index = obs_index + 1;
     end
     
-% 外力触发 强行改变路径    
- if abs(contact_force_after(1))>5
-     diminish=1;
-     accu_point=real_point;
-     delete_point=this_point;
-     MDZZ=[MDZZ 1];
- else
-     MDZZ=[MDZZ 0];
- end        
-  %% round_over代表已经越过了轨迹终点   1代表走完
- if round_over == 0
-     this_point_after=this_point-diminish*(delete_point-accu_point);
- else
-     this_point_after=size(points_dot3,2);
- end
+    % 外力触发 强行改变路径    
+     if abs(contact_force_after(1))>5
+         diminish=1;
+         accu_point=real_point;
+         delete_point=this_point;
+         MDZZ=[MDZZ 1];
+     else
+         MDZZ=[MDZZ 0];
+     end        
+      %% round_over代表已经越过了轨迹终点   1代表走完
+     if round_over == 0
+         this_point_after=this_point-diminish*(delete_point-accu_point);
+     else
+         this_point_after=size(points_dot3,2);
+     end
     
     
     if this_point_after < this_point
         this_point_after = this_point;
     end
     
-    if this_point_after >= size(points_dot3,2)
+%     if this_point_after >= size(points_dot3,2)
+%         this_point_after=size(points_dot3,2);
+%     end
+    if real_point >= size(points_dot3,2)
         round_over=1;
-    end
+    end    
+    
+    
     all_real_point=[all_real_point real_point]; 
     all_this_point=[all_this_point this_point];
     all_this_point_after=[all_this_point_after this_point_after];
@@ -574,7 +609,7 @@ all_filter_twist=[all_filter_twist filter_twist];
 
 
 %% real time interaction
-
+    all_end_effector_p=[all_end_effector_p end_effector_p];
     if IMU_ENABLE 
         %重物 
         mass_eul_ZYX = [mass_eul(3) mass_eul(2) mass_eul(1)];
@@ -584,21 +619,25 @@ all_filter_twist=[all_filter_twist filter_twist];
         pos_hand = R_mass  * (Pmass) + (end_effector_p + [ 0; 0 ; -0.08]) ; % 记录手部的位置，与pos_table相比，多了半个桌子的长度
         pos_hand_v = (pos_hand - pos_hand_pre) ./ dt_real; % 记录手部的速度
         pos_hand_pre = pos_hand;
-        delta = R_mass  * (Pmass/2);
-        all_end_effector_p=[all_end_effector_p end_effector_p];
+        delta = R_mass  * (Pmass/2) ;
+        
         all_pos_table=[all_pos_table pos_table];  
         all_pos_hand=[all_pos_hand pos_hand];  
         all_pos_hand_v = [all_pos_hand_v pos_hand_v];
-        %         R_etow=pose(1:3,1:3);       % 末端执行器到world
-        %         R_ttow=eul2rotm(eul);      % 重物到world
-        %         R_ttoe=R_ttow*(R_etow');  
-        %         pos_table = end_effector_p+R_ttoe*[-5*0.05; 0; 0;];
+        
+        if abs(end_effector_p(3,:) - 0.08 - pos_hand(3,:)) <= 0.08
+            % 桌子水平
+            slope_IMU = 0;
+        elseif end_effector_p(3,:) - 0.08 - pos_hand(3,:) > 0.08
+            % 机器人端高
+            slope_IMU = 2;
+        elseif end_effector_p(3,:) - 0.08 - pos_hand(3,:) < -0.08
+            % 人高
+            slope_IMU = 1;
+        end
+        
         if LABEL_ENABLE
-%             ii = 2650;
-%             end_effector_p = all_end_effector_p(:,ii);
-%             pos_table = all_pos_table(:,ii);
-%             pos_hand_v = all_pos_hand_v(:,ii);
-%             pos_hand = all_pos_hand(:,ii);
+            
             obs_pos = all_space(cartis_obs,:);% 所有障碍物的坐标
             [~,which_obs]=min(sum(abs(obs_pos(:,1:2)-pos_table(1:2)'),2));% 找到距离桌子最近的障碍物的索引
             center_s=cartis_obs(which_obs);
@@ -622,19 +661,21 @@ all_filter_twist=[all_filter_twist filter_twist];
             
             % 标签；三个v_state：hand靠近障碍物---1；一样----2；robot靠近障碍物----3；
             v_state = 0; % 表示不确定
-            if abs(delta_pos_robot(3,:) - delta_pos_hand(3,:)) <= 0.05
+            if abs(delta_pos_robot(3,:) - delta_pos_hand(3,:)) <= 0.08
                 % 如果桌子两端的高度差值不超过 5 cm，则是
                 v_state = 2;
-            elseif delta_pos_robot(3,:) - delta_pos_hand(3,:) >= 0.10
+            elseif delta_pos_robot(3,:) - delta_pos_hand(3,:) > 0.08
                 % 如果手靠近障碍物，则是
                 v_state = 1;
-            elseif delta_pos_robot(3,:) - delta_pos_hand(3,:) <= -0.10
+            elseif delta_pos_robot(3,:) - delta_pos_hand(3,:) < -0.08
                 % 如果机器人靠近障碍物，则是
                 v_state = 3;    
             end
             state_label = [which_obs; v_state];
-            all_state_label = [all_state_label, state_label]; % 第一行是当前障碍物 第二行是v_state
+            all_state_label = [all_state_label, state_label]; % 第一行是当前障碍物 第二行是v_state  
         end
+%         pos_table = end_effector_p;      %【【【【【【 不考虑重物 】】】】】
+%         delta=pos_table -end_effector_p;  %重物位置和末端位置之差
     else
         pos_table = end_effector_p;      %【【【【【【 不考虑重物 】】】】】
         delta=pos_table -end_effector_p;  %重物位置和末端位置之差
@@ -646,14 +687,13 @@ all_filter_twist=[all_filter_twist filter_twist];
     all_q=[all_q q];
     J67=Jac;
     J=J67(1:3,:);
-
         %     eul=0;  % wait
 
     J_pinv = pinv(J);
 
     
     q0_dot=zeros(7,1); %关节速度
-      for double_obs = 1:3  %最近的三个障碍
+      for double_obs = 1:3  %最近的三个障碍,就按 
        if double_obs == 1
             this_obs=obs1;
 %             [dists,grads] = distancesAndGrads_tableU(q, this_obs, delta, 0, myspace,0);
@@ -695,9 +735,9 @@ all_filter_twist=[all_filter_twist filter_twist];
       inform3=[information1; information2; information3;];
       all_inform_obs=[all_inform_obs; inform3;];    
     
-    
-        F=J*q0_dot;  %转换为末端受力
-        all_F=[all_F F];
+%       q0_dot=zeros(7,1); %关节速度
+      F=J*q0_dot;  %转换为末端受力
+      all_F=[all_F F];
         
         target_v3=points_dot3(:,this_point_after);
         all_target_v3=[all_target_v3 target_v3];
@@ -803,18 +843,18 @@ all_filter_twist=[all_filter_twist filter_twist];
      rate_xdetjia=[rate_xdetjia xdetjia];
      rate_target=[rate_target J67*target_joint_velocity_next];
      att_7_joint_v=pinv(Jac)*[v_filt(1:3); zeros(3,1)];
-    % att_7_joint_v=pinv(J_dx_dq)*v_filt(1:3);
+%     att_7_joint_v=pinv(Jac)*v_filt;
     all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
     % add attandance control
-    % safe_input7=q_control_dot;
+%     safe_input7=q_control_dot;
     safe_input7=att_7_joint_v;
      %% SAFE  限幅
-    future_pos_7=q_init'+safe_input7*dt;
+    future_pos_7=q_init'+safe_input7' * dt;
     for each_joint = 1:7
         if (future_pos_7(each_joint) <= qmin(each_joint)) || (future_pos_7(each_joint) >= qmax(each_joint))
             disp('ERROR! 机械臂运动范围超过限幅')
             v_control(each_joint)=0;
-            OVER=1;
+            LABEL_ENABLE=1;
             stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
             joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动 终止程序
             iiwa.realTime_stopVelControlJoints();
@@ -830,7 +870,7 @@ all_filter_twist=[all_filter_twist filter_twist];
         if (safe_input7(each_joint) <= -qdlimit(each_joint)) || (safe_input7(each_joint) >= qdlimit(each_joint))
             disp("ERROR! 机械臂运动速度超出限幅")
             v_control(each_joint)=0;
-            OVER=1;
+            LABEL_ENABLE=1;
             stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
             joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动 终止程序
             iiwa.realTime_stopVelControlJoints();
@@ -844,7 +884,7 @@ all_filter_twist=[all_filter_twist filter_twist];
     future_pos_3=end_effector_p+J_dx_dq*safe_input7*dt;
     if future_pos_3(3)<0.05    %机械臂碰到桌子
         disp('ERROR! 机械臂可能会撞到桌子')
-        OVER=1;
+        LABEL_ENABLE=1;
         stop_control = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0];
         joint_exTor=iiwa.sendJointsVelocitiesExTorques(num2cell(stop_control));  %停止运动 终止程序
         iiwa.realTime_stopVelControlJoints();
@@ -880,7 +920,7 @@ all_filter_twist=[all_filter_twist filter_twist];
 
     if round_over == 1
         disp('round_over')
-%         OVER=1;
+%         LABEL_ENABLE=1;
         break
     end
 end
@@ -899,7 +939,7 @@ if IMU_ENABLE
     fclose(t_server_IMU);
     disp('IMU关闭！！');
 end
-    
+
 if EMG_ENABLE
     fwrite(t_server_EMG,[88888.888,7654321],'double');
     fclose(t_server_EMG);
@@ -940,18 +980,13 @@ return
 
 %% Save Data [  先改文件名！ ]
 
-
-
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = '-v39（0906加入v-state的自动标注-4）';
+TestNum = 'test-attan-follow';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
 return
 %% Draw with maze  [  先改文件名！ ]
-
-
-
 
 GIFpath   =  'C:\MMMLY\KUKA_Matlab_client\A_User\GIF\KUKA-Exp';
 GIFname = [GIFpath,'\HRC_Maze_',TestNum];
@@ -1049,10 +1084,10 @@ for  ii = 1:totalLen
     
     view(60,40) ;
     axis([-0.5,1.2 ,-1,1, 0,0.9]);
-    if LABEL_ENABLE
-        txt = ['obs-now: ', num2str(all_state_label(1, ii)), char(10),'v-state: ', num2str(all_state_label(2, ii))];
-        text(centerPoint(1), centerPoint(2), centerPoint(3), txt, 'Fontsize', 14);
-    end
+%     if LABEL_ENABLE
+%         txt = ['obs-now: ', num2str(all_state_label(1, ii)), char(10),'v-state: ', num2str(all_state_label(2, ii))];
+%         text(centerPoint(1), centerPoint(2), centerPoint(3), txt, 'Fontsize', 14);
+%     end
     xlabel("X"); ylabel('Y');  zlabel('Z');
     title(["HRC Maze",TestNum]);
     %%
@@ -1075,7 +1110,16 @@ for  ii = 1:totalLen
 %     实际轨迹
 %     plot3(all_end_effector_p(1,:),all_end_effector_p(2,:),all_end_effector_p(3,:),'b','Linewidth',2)
 %     轨迹规划所生成的目标点
-%     plot3(all_point3(1,1:701),all_point3(2,1:701),all_point3(3,1:701),'g','Linewidth',3)
+%     plot3(all_point3(1,1:end),all_point3(2,1:end),all_point3(3,1:end),'g','Linewidth',3)
+%     [myspace cartis_obs]=get_init_big_maze_v1(2221);
+%     all_space=cell2mat(myspace(:,3:4));
+%     for node = 1:size(myspace,1)
+%         if all_space(node,4) == 1
+%             plot3(all_space(node,1),all_space(node,2),all_space(node,3),'m.','MarkerSize',18); hold on;
+%         else
+%             plot3(all_space(node,1),all_space(node,2),all_space(node,3),'b.','MarkerSize',18); hold on;
+%         end
+%     end
 
     %存储不同视角
     view(60,20) ; %左视角

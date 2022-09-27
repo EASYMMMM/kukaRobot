@@ -1,4 +1,4 @@
-function [distance, boundary] = find_distance(position, obs, myspace, expand)
+function [distance, boundary] = find_distance_table(position, obs, myspace, expand)
 % please give me the start point of your joint or table, the result will be
 % the shortest distance. And I did not consider when the robot is collide
 % with the obstacle. - author -Lin YANG
@@ -8,15 +8,15 @@ y=position(2);
 z=position(3);
 center=cell2mat(myspace(obs,3));
 if obs <=66
-    center(3)=center(3)-0.0;
+    center(3)=center(3)-0.05;
 else
     center(3)=center(3)+0.05;
 end
 
 size=cell2mat(myspace(obs,2));
-
-size(1)=size(1)/2;
-size(2)=size(2)/2;
+size(1)=size(1)/5;
+size(2)=size(2)/5;
+size(3)=size(2)/5;
 expand=0.1;
 
 % size(1)=0;
@@ -68,7 +68,7 @@ if obs <= 66 % lower
         elseif x > center(1) + size(1)/2
             if y < center(2) - size(2)/2
                 boundary=[center(1)+size(1)/2; center(2)-size(2)/2; center(3)+size(3)/2;];
-            elseif y > center(2) + size(2)/2
+            elseif y > center(1) + size(1)/2
                 boundary=[center(1)+size(1)/2; center(2)+size(2)/2; center(3)+size(3)/2;];
             else
                 boundary=[center(1)+size(1)/2; position(2); center(3)+size(3)/2;];

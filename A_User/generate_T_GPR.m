@@ -15,7 +15,7 @@ plot(all_end_effector_p(3,1:end)); hold on;
 plot(all_pos_hand(3,1:end));
 legend(' robot','hand')
 
-%% 人手离障碍相对较远，接下来几乎同理，注释就不写了
+%% 人手离障碍相对较近，接下来几乎同理，注释就不写了
 figure; %down
 start_low=100; end_low=850; %我选的数据范围
 plot3(all_pos_hand(1,start_low:end_low),all_pos_hand(2,start_low:end_low),all_pos_hand(3,start_low:end_low),'ro','MarkerSize',2); hold on;
@@ -55,7 +55,7 @@ result_low=delta_low(:,2:end);
 delta_low=delta_low(:,1:end-1);
 result_v_low=delta_v_low(:,2:end);
 delta_v_low=delta_v_low(:,1:end-1);
-%% 人手离障碍近
+%% 人手离障碍远
 figure; %up
 % start_high=560;
 start_high=2150; end_high=3500;
@@ -165,6 +165,7 @@ gprMdl_xv1 = fitrgp(data_train_X,data_result_X(:,4));
 gprMdl_yv1 = fitrgp(data_train_X,data_result_X(:,5));
 gprMdl_zv1 = fitrgp(data_train_X,data_result_X(:,6));
 
+% gprMdl = fitrgp(data_train_X(:,[1, 4]),data_result_X(:,1));
 tic
 start_point=data_train_X(76,1:end-1);
 [result,result_yci,all_intent] = GRP_xyzvvv_onepoint(start_point, 1, gprMdl_x1,gprMdl_y1,gprMdl_z1,gprMdl_xv1, gprMdl_yv1,gprMdl_zv1,50);
@@ -176,7 +177,7 @@ legend('x','y','z','vx','vy','vz','intent')
 
 
 figure(41)
-plot(gprMdl_x1.Y,'r.'); hold on;
+plot(gprMdl_x1.Y(76:end-1),'r.'); hold on;
 plot(result(:,1), 'y.'); hold on;
 plot(result_yci(:,1),'k:'); hold on;
 plot(result_yci(:,2),'k:');
@@ -252,9 +253,9 @@ for see_point = 30:30:size(all_pos_hand,2)
     
  %% 画图 
  
-    see_intent=sum(pre_intent,1);
+     see_intent=sum(pre_intent,1);
     color=find(see_intent == max(see_intent));
-    figure(66);
+    figure(90);
     view(60,20) ; %左视角
     if color == 1
         kuka_color = [240 0 0]; %red - band is close 
@@ -263,33 +264,39 @@ for see_point = 30:30:size(all_pos_hand,2)
     else
         kuka_color = [1 220 1];% green - hand is midlle
     end
-        
-    plot3(result3(:,1),result3(:,2),result3(:,3),'o-','color',kuka_color/255,'MarkerSize',2); hold on;
-    xlim([-0.2 0.8]); 
+%     correct_intent=mode(all_state_label_test(2,see_point:see_point+30));
+    correct_intent=all_state_label(2,see_point);
+    if color == correct_intent
+        plot3(result3(:,1),result3(:,2),result3(:,3),'o-','color',kuka_color/255,'MarkerSize',2); hold on;
+    else
+        kuka_color = [0 0 0];
+        plot3(result3(:,1),result3(:,2),result3(:,3),'x','color',kuka_color/255,'MarkerSize',2); hold on;
+    end
+        xlim([-0.2 0.8]); 
 ylim([-1 1]); 
 zlim([-0.1 0.9]); 
 
 end
-    %障碍物
-    Len = length(myspace(:,1));
-    blue = [0 , 250 , 250];
-    red = [255 , 0 , 0];
-    eul = [ 0 , 0 , 0];
+%障碍物
+Len = length(myspace(:,1));
+blue = [0 , 250 , 250];
+red = [255 , 0 , 0];
+eul = [ 0 , 0 , 0];
 
+hold on
+%下层
+centerPoint = [ 0.3750 , 0 , 0.2];
+recSize = [1.25 , 1.9500 , 0.4];
+drawRectangle(centerPoint,recSize,eul,0,blue);
+hold on
+%上层
+centerPoint = [ 0.3750 , 0 , 0.6];
+recSize = [1.25 , 1.9500 , 0.4];
+drawRectangle(centerPoint,recSize,eul,0,blue);
     hold on
-    %下层
-    centerPoint = [ 0.3750 , 0 , 0.2];
-    recSize = [1.25 , 1.9500 , 0.4];
-    drawRectangle(centerPoint,recSize,eul,0,blue);
+for i = cartis_obs
+    centerPoint = cell2mat(myspace(i,3));
+    recSize = cell2mat(myspace(i,2));
+         drawRectangle(centerPoint,recSize,eul,2,red);
     hold on
-    %上层
-    centerPoint = [ 0.3750 , 0 , 0.6];
-    recSize = [1.25 , 1.9500 , 0.4];
-    drawRectangle(centerPoint,recSize,eul,0,blue);
-        hold on
-    for i = cartis_obs
-        centerPoint = cell2mat(myspace(i,3));
-        recSize = cell2mat(myspace(i,2));
-             drawRectangle(centerPoint,recSize,eul,2,red);
-        hold on
-    end  
+end  

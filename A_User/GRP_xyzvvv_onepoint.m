@@ -20,7 +20,7 @@
     result_yci=[];
     result=[X_test(1,:)];
 
-    
+
 %%   下面的不需要改
     for t = 1:predict_length
         this_den=0;
@@ -28,6 +28,7 @@
         max_yci=[];
         all_rou=[];
         for g = 1:num_intent
+
             expr_g=['pt' num2str(g) '0'];
             value_g=eval(expr_g);
             expr_g_init=['init_' num2str(g)];
@@ -36,6 +37,7 @@
             each_yci=[];
             rou0=1;
             for GPR = 1:num_GPR
+
                 expr_GPR=['gprMdl_' num2str(GPR)];
                 gprMdl=eval(expr_GPR);
                 [ypred_single, standard, yci] = predict(gprMdl,value_g);
@@ -64,25 +66,25 @@
             expr_rou=['init_' num2str(g) ' = next_rou_value;' ];
             eval(expr_rou);
         end   
-% init_1
-% init_2
-        %比大小
+        % init_1
+        % init_2
+                %比大小
          which_max=find(all_init==max(all_init));
          if length(which_max)>1
              which_max=which_max(1);
          end
          this_pre=g_relate_pre(which_max,:);
-
+         
          this_yci=max_yci(which_max,:);
          for gg = 1:num_intent
                 expr_newpt=['pt' num2str(gg) '0 = [this_pre gg];' ];
                 eval(expr_newpt);
          end
-all_intent=[all_intent;all_init;];         
-         
-pt10;
-pt20;
-nmb_p2=[nmb_p2; pt20;];
+        all_intent=[all_intent;all_init;];         
+
+        pt10;
+        pt20;
+        nmb_p2=[nmb_p2; pt20;];
          result=[result; this_pre;];
          result_yci=[result_yci; this_yci;];
     end
