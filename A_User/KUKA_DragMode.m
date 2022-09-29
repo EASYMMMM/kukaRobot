@@ -80,10 +80,15 @@ b_cartesian_low = diag([100,100,100]*1.5);
 H_inv_low          = diag([1 1 1]/10/5*3)   ;
 
 
-%hand guiding
-k_cartesian = diag([0,0,0]*1*1)*1.3*4
-b_cartesian = b_cartesian_low
-H_inv          = H_inv_low  
+% %hand guiding
+% k_cartesian = diag([0,0,0]*1*1)*1.3*4
+% b_cartesian = b_cartesian_low
+% H_inv          = H_inv_low  
+
+k_cartesian = k_cartesian_high;
+b_cartesian = b_cartesian_high;
+H_inv = H_inv_high;
+
 
 eefErrorLast = [0;0;0];  %上一周期的偏差
 eefdErrorLast = [0;0;0];

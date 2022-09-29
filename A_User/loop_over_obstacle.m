@@ -23,7 +23,7 @@ FUTURE=3;
 
 
 EMG_ENABLE = 0 ; %EMG在本程序中是否开启： 0为关闭，1为开启
-IMU_ENABLE = 1;  %IMU在本程序中是否开启： 0为关闭，1为开启
+IMU_ENABLE = 0;  %IMU在本程序中是否开启： 0为关闭，1为开启
 LABEL_ENABLE= 1; %是否在实时程序中进行打标签：0为关闭，1为开启；前提是IMU_ENABLE = 1;
 
 while 1
@@ -318,7 +318,7 @@ EMG_frame = 1;
 all_obs1 = [];
 all_obs2 = [];
 all_obs3 = [];q_control_dot=zeros(7,1);all_att_7_joint_v=[];all_filter_twist=[];all_xe=[]; all_xde=[]; all_a_d=[];
-all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_point3=[];all_points_dot3=[];
+all_x_t1dd=[];all_target_v3=[];all_inform_obs=[];all_point3=[];all_points_dot3=[];all_target_x3=[];
 pos_hand_pre = zeros(3,1);
 all_total_act = zeros(100,100);
 
@@ -403,7 +403,7 @@ while OVER == 0
         
     end
 
-    FUTURE = 3;
+%     FUTURE = 3;
     %lower please 这里是为了不想让机械臂末端抬得太高
     which_high_point = find(way_points(3,:) > 0.58);
     way_points(3,which_high_point) = 0.5;
@@ -600,16 +600,16 @@ all_filter_twist=[all_filter_twist filter_twist];
 
 % all_filter_twist2=reshape(all_filter_twist,6,42750/6)
 
-     [ pose, nsparam, rconf, jout ] = ForwardKinematics( this_p, robot_type );
+    [pose, nsparam, rconf, jout ] = ForwardKinematics( this_p, robot_type );
     end_effector_p = pose(1:3,4);
     eulangel=rotm2eul(pose(1:3,1:3));
-
+    all_end_effector_p=[all_end_effector_p end_effector_p];
     real_end_car=[end_effector_p; eulangel';];
 
 
 
 %% real time interaction
-    all_end_effector_p=[all_end_effector_p end_effector_p];
+    
     if IMU_ENABLE 
         %重物 
         mass_eul_ZYX = [mass_eul(3) mass_eul(2) mass_eul(1)];
@@ -735,19 +735,22 @@ all_filter_twist=[all_filter_twist filter_twist];
       inform3=[information1; information2; information3;];
       all_inform_obs=[all_inform_obs; inform3;];    
     
-%       q0_dot=zeros(7,1); %关节速度
+      q0_dot=zeros(7,1); %关节速度，斥力相关
       F=J*q0_dot;  %转换为末端受力
       all_F=[all_F F];
+      
+      target_v3=points_dot3(:,this_point_after); %规划的末端速度（参考速度，不考虑斥力的期望/目标速度）
+      all_target_v3=[all_target_v3 target_v3];
+        target_x3 = points3(:, this_point_after);
+        all_target_x3=[all_target_x3 target_x3];
         
-        target_v3=points_dot3(:,this_point_after);
-        all_target_v3=[all_target_v3 target_v3];
-        qd_dot = J_pinv * points_dot3(:,this_point_after) + q0_dot;  %斥力+参考轨迹 --》关节速度
+        qd_dot = J_pinv * points_dot3(:,this_point_after) + q0_dot;  %斥力+参考轨迹 --》关节速度（考虑了斥力的期望/目标速度）
         %     qd_dot = J_pinv * points_dot3(:,i) + (eye(7)-J_pinv*J)*q0_dot;
 
         target_joint_velocity=q_control_dot;
 
 
-        q_init = q_init + qd_dot*Ts;      % 更新当前目标位置    %Euler integration 
+        q_init = q_init + qd_dot*Ts;      % 更新当前目标位置    
         all_q_init=[all_q_init q_init];
         q_err = q_init - q;                      %当前位置与目标位置偏差
         control_signal = Kp_joint*q_err; %比例控制
@@ -756,10 +759,10 @@ all_filter_twist=[all_filter_twist filter_twist];
         all_qd_dot=[all_qd_dot qd_dot];
         all_control_signal=[all_control_signal control_signal];
         v_control=J67*q_control_dot;    %将目标速度转到笛卡尔空间
-        all_v_control=[all_v_control v_control];
+        all_v_control=[all_v_control v_control]; % 这是考虑了斥力之后的，期望/目标速度
 
         target_joint_velocity_next=q_control_dot;
-        %     fuck=J_pinv * points_dot3(:,i_theta);
+
          
 %         %********************************* 接收EMG数据********************************************
         if EMG_ENABLE
@@ -793,7 +796,7 @@ all_filter_twist=[all_filter_twist filter_twist];
             end
             EMG_frame = EMG_frame+1;
         end
-%         
+        
         
      %********************************* 接收EMG数据 END********************************************
 %% 33333333333333333333333333333333333333333333333333333333333333333333333333333333
@@ -818,7 +821,7 @@ all_filter_twist=[all_filter_twist filter_twist];
         if abs(a_d(each_a)) > 0.5
             a_d(each_a)=a_d(each_a)/abs(a_d(each_a))*0.5;
         end
-    end
+    end % 将加速度限制在-0.5 ~ 0.5之间
     % test without real human pushing it 
 %     filter_twist(3) = 20;
     
@@ -843,9 +846,10 @@ all_filter_twist=[all_filter_twist filter_twist];
      rate_xdetjia=[rate_xdetjia xdetjia];
      rate_target=[rate_target J67*target_joint_velocity_next];
      att_7_joint_v=pinv(Jac)*[v_filt(1:3); zeros(3,1)];
-%     att_7_joint_v=pinv(Jac)*v_filt;
+
     all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
     % add attandance control
+    
 %     safe_input7=q_control_dot;
     safe_input7=att_7_joint_v;
      %% SAFE  限幅
@@ -981,7 +985,7 @@ return
 %% Save Data [  先改文件名！ ]
 
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = 'test-attan-follow';
+TestNum = '-v63-加导纳-加IMU-不计算斥力-完整';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
