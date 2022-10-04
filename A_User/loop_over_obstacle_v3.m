@@ -23,7 +23,7 @@ FUTURE=3;
 
 
 EMG_ENABLE = 0 ; %EMG在本程序中是否开启： 0为关闭，1为开启
-IMU_ENABLE = 0;  %IMU在本程序中是否开启： 0为关闭，1为开启
+IMU_ENABLE = 1;  %IMU在本程序中是否开启： 0为关闭，1为开启
 LABEL_ENABLE= 1; %是否在实时程序中进行打标签：0为关闭，1为开启；前提是IMU_ENABLE = 1;
 
 while 1
@@ -241,13 +241,12 @@ pos_x=[];pos_y=[];pos_z=[];new_v_filt=[];
 k_cartesian_high = diag([100,100,100,0,0,0]*1*1)*1.3*5*2/2;  
 b_cartesian_high = diag([100,100,100,0,0,0]*2.5);
 H_inv_high          = diag([1,1,1,0,0,0]/10/5/1.4*3) ; 
-% 
+
 % %低导纳参数
 k_cartesian_low = diag([100,100,100,0,0,0])*3;    
 b_cartesian_low = diag([100,100,100,0,0,0]*1.5);
 H_inv_low          = diag([1,1,1,0,0,0]/10/5*3)   ;
 
-% 
 % k_cartesian = k_cartesian_low
 % b_cartesian = b_cartesian_low
 % H_inv          = H_inv_low 
@@ -574,7 +573,8 @@ for i=1:size(points_dot3,2)*2
 
     %% ========Adj
 %         % controller
-[Jac,A_mat_products] = Jacobian(this_p,robot_type);
+[pose, Jac ] = iiwa.gen_DirectKinematics(this_p);
+% [Jac,A_mat_products] = Jacobian(this_p,robot_type);
 J_dx_dq = Jac(1:3,:);
         
 my_torque=cell2mat(my_t).';
@@ -590,6 +590,10 @@ F_filtered1 = kalmanx(F_contact(1));
 F_filtered2 = kalmany(F_contact(2));
 F_filtered3 = kalmanz(F_contact(3));
 
+if F_filtered3 < -5
+    F_filtered3 = -5;
+end
+
 twist4=kalman1(Twist(4));
 twist5=kalman1(Twist(5));
 twist6=kalman1(Twist(6));
@@ -603,7 +607,6 @@ all_filter_twist=[all_filter_twist filter_twist];
 
 % all_filter_twist2=reshape(all_filter_twist,6,42750/6)
 
-    [pose, nsparam, rconf, jout ] = ForwardKinematics( this_p, robot_type );
     end_effector_p = pose(1:3,4);
     eulangel=rotm2eul(pose(1:3,1:3));
     all_end_effector_p=[all_end_effector_p end_effector_p];
@@ -804,22 +807,14 @@ all_filter_twist=[all_filter_twist filter_twist];
      %********************************* 接收EMG数据 END********************************************
 %% 33333333333333333333333333333333333333333333333333333333333333333333333333333333
         
-%         this_p=iiwa.getJointsPos();
-%         this_p=cell2mat(this_p);
-%         feedback_joint_position=this_p;
-%         q_init = feedback_joint_position +  qd_dot*Ts;  
-% %         [ pose, nsparam, rconf, jout ] = ForwardKinematics( feedback_joint_position, robot_type );
-        [ pose, nsparam, rconf, jout ] = ForwardKinematics( q_init, robot_type );
+        [ pose, ~] = iiwa.gen_DirectKinematics(q_init);
         target_end_effector_p = pose(1:3,4);
         target_eulangel=rotm2eul(pose(1:3,1:3));
        
       
         target_cart=[target_end_effector_p; target_eulangel';];
         
-        
-        
-%         v_filt=J67*q_control_dot;
-        
+
         a_d=(J67*target_joint_velocity_next-J67*target_joint_velocity)/dt;    
         if i == 1
             a_d=zeros(6,1);
@@ -830,10 +825,7 @@ all_filter_twist=[all_filter_twist filter_twist];
             a_d(each_a)=a_d(each_a)/abs(a_d(each_a))*0.5;
         end
     end % 将加速度限制在-0.5 ~ 0.5之间
-    % test without real human pushing it 
-%     filter_twist(3) = 20;
-    
-%     filter_twist=zeros(6,1);
+
         all_a_d=[all_a_d a_d];
     
         xe = - target_cart + real_end_car + J67*target_joint_velocity*dt; %3 1
@@ -993,7 +985,7 @@ return
 %% Save Data [  先改文件名！ ]
 
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = '-v64-加导纳-不加IMU-不计算斥力-锁死-完整';
+TestNum = '-v66-加导纳-加IMU-计算斥力-锁死末端-完整';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
@@ -1123,6 +1115,7 @@ for  ii = 1:totalLen
 %     plot3(all_end_effector_p(1,:),all_end_effector_p(2,:),all_end_effector_p(3,:),'b','Linewidth',2)
 %     轨迹规划所生成的目标点
 %     plot3(all_point3(1,1:end),all_point3(2,1:end),all_point3(3,1:end),'g','Linewidth',3)
+%     plot3(all_target_x3(1,1:end),all_target_x3(2,1:end),all_target_x3(3,1:end),'r','Linewidth',3)
 %     [myspace cartis_obs]=get_init_big_maze_v1(2221);
 %     all_space=cell2mat(myspace(:,3:4));
 %     for node = 1:size(myspace,1)
