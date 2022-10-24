@@ -576,7 +576,7 @@ for i=1:size(points_dot3,2)*2
 %         % controller
 [Jac,A_mat_products] = Jacobian(this_p,robot_type);
 J_dx_dq = Jac(1:3,:);
-        
+
 my_torque=cell2mat(my_t).';
 new_torque=[new_torque; cell2mat(my_t);];
 

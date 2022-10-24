@@ -24,7 +24,8 @@ FUTURE=3;
 
 EMG_ENABLE = 0 ; %EMG在本程序中是否开启： 0为关闭，1为开启
 IMU_ENABLE = 1;  %IMU在本程序中是否开启： 0为关闭，1为开启
-LABEL_ENABLE= 1; %是否在实时程序中进行打标签：0为关闭，1为开启；前提是IMU_ENABLE = 1;
+LABEL_ENABLE= 0; %是否在实时程序中进行打标签：0为关闭，1为开启；前提是IMU_ENABLE = 1;
+ZSO_ENABLE = 1;  %是否开启零空间优化
 
 while 1
 if EMG_ENABLE
@@ -46,6 +47,15 @@ else
     disp('                  本次实验关闭IMU ');
     disp(' =========================== ');    
 end
+if ZSO_ENABLE
+    disp(' =========================== ');
+    disp('                  本次实验开启零空间优化 ');
+    disp(' =========================== ');
+else
+    disp(' =========================== ');
+    disp('                  本次实验关闭零空间优化 ');
+    disp(' =========================== ');    
+end    
 break
 end    %打印外设开启状态
 
@@ -98,7 +108,7 @@ end
 %% Create the robot object
 ip='172.31.1.147'; % The IP of the controller
 arg1=KST.LBR14R820; % choose the robot iiwa7R800 or iiwa14R820
-arg2=KST.Medien_Flansch_elektrisch; % choose the type of flange
+arg2=KST.None; % choose the type of flange
 Tef_flange=eye(4); % transofrm matrix of EEF with respect to flange
 iiwa=KST(ip,arg1,arg2,Tef_flange); % create the object
 
@@ -123,7 +133,7 @@ all_delta_wan_y=[];all_delta_wan_x=[];all_delta_wan_z=[];
 all_delta_jian_y=[];all_delta_jian_x=[];all_delta_jian_z=[];
 all_delta_zhou_y=[];all_delta_zhou_x=[];all_delta_zhou_z=[];
 all_sum_wan_y=[];all_sum_wan_x=[];all_sum_wan_z=[];
-
+all_qd_op= [ ];
 
 
 disp('Start a connection with the KUKA server')
@@ -138,6 +148,8 @@ disp('Moving first joint of the robot using a sinusoidal function')
 %% high level initialize 
 CHANGE=0;  %地图没发生变化  初始
 now_pos_3=[-0.125 -0.675 0.2]';  %机器人初始点
+% RL2m3m3_maze_big_v0这个是规划走内圈；
+% RL2m3m3_maze_big这个是规划走外圈；
 [lastq,lastR,total_act ,way_points ,which_state_now, myspace, cartis_obs ,OBSTACLE]= RL2m3m3_maze_big_v0(now_pos_3,0,CHANGE,0,0,0,0,[]);
 last_state=which_state_now;
 last_space=myspace;
@@ -160,7 +172,8 @@ theta_points=All_theta(:,2);
 
 All_theta=All_theta*pi/180;
 what=All_theta(:,2);
-what(end)=-160*pi/180; % 初始位姿，第七个关节
+% what(end)=-160*pi/180; % 初始位姿，第七个关节
+what(end)=0*pi/180; % 初始位姿，第七个关节
 
 theta_points2=num2cell(what)
 iiwa.movePTPJointSpace(theta_points2, relVel); % move to initial configuration
@@ -243,9 +256,9 @@ b_cartesian_high = diag([100,100,100,0,0,0]*2.5);
 H_inv_high          = diag([1,1,1,0,0,0]/10/5/1.4*3) ; 
 
 % %低导纳参数
-k_cartesian_low = diag([100,100,100,0,0,0])*3;    
-b_cartesian_low = diag([100,100,100,0,0,0]*1.5);
-H_inv_low          = diag([1,1,1,0,0,0]/10/5*3)   ;
+k_cartesian_low = diag([100/2,100/2,100*6,0,0,0])*3;    
+b_cartesian_low = diag([100/2,100/2,100*3.5,0,0,0]*1.5);
+H_inv_low          = diag([1,1,1/4,0,0,0]/10/5*3)   ;
 
 % k_cartesian = k_cartesian_low
 % b_cartesian = b_cartesian_low
@@ -280,7 +293,9 @@ qdlimit = [85,85,100,75,130,135,135]*pi/180 * 0.95;
 %%  please prepare for starting
 
     
-%% Control loop   
+%% Control loop   定义一些存储变量
+ 
+while 1
 all_v_cartesian_target=[];all_v_cartesian=[];alldt=[];all_contact_force_after=[];
 all_target_joint_position_e=[];
 All_v=[];EX_force_ori=[];all_F_contact=[];my_t=[{0} {0} {0} {0} {0} {0} {0}];all_f_attractor=[];all_end_effector_p=[];
@@ -323,7 +338,8 @@ pos_hand_pre = zeros(3,1);
 all_total_act = zeros(100,100);
 
 mass_eul = [ 0 0 0]; 
-
+break
+end
 %% Wait for IMU
 if IMU_ENABLE
     FLAG_IMU=0;
@@ -346,9 +362,18 @@ if IMU_ENABLE
     disp(' *  标定完成，请将IMU固定在绑带上  * ');
     disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
     disp(' -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ');
+    disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
     pause(15)
-end
 
+    while mass_eul(1,3) > -1.0
+            %读取一帧IMU数据 
+             [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
+             if flag == 1  
+                 mass_eul=imu3_data(13:15)*pi/180; %重物的欧拉角
+             end
+            disp([' *  等待正常IMU的值  * ', num2str(mass_eul(1,3))]);
+    end
+end
 
 %% Main Loop
 disp(' =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ');
@@ -361,7 +386,7 @@ tic
 slope_IMU = 0;
 
 all_length_points = [];
-%%%%%%%%%%%%%%Table%%%%%%%%%%%
+%%%%%%%%%%%%%%future_obs_table%%%%%%%%%%%
 future_obs_table = ...
     {[13, 14, 80];...
     [101, 102];...
@@ -590,8 +615,8 @@ F_filtered1 = kalmanx(F_contact(1));
 F_filtered2 = kalmany(F_contact(2));
 F_filtered3 = kalmanz(F_contact(3));
 
-if F_filtered3 < -5
-    F_filtered3 = -5;
+if F_filtered3 < -3
+    F_filtered3 = -3;
 end
 
 twist4=kalman1(Twist(4));
@@ -809,12 +834,10 @@ all_filter_twist=[all_filter_twist filter_twist];
         
         [ pose, ~] = iiwa.gen_DirectKinematics(q_init);
         target_end_effector_p = pose(1:3,4);
-        target_eulangel=rotm2eul(pose(1:3,1:3));
-       
+        target_eulangel=rotm2eul(pose(1:3,1:3));   
       
         target_cart=[target_end_effector_p; target_eulangel';];
         
-
         a_d=(J67*target_joint_velocity_next-J67*target_joint_velocity)/dt;    
         if i == 1
             a_d=zeros(6,1);
@@ -837,22 +860,30 @@ all_filter_twist=[all_filter_twist filter_twist];
         all_x_t1dd=[all_x_t1dd x_t1dd];
         equal_F=(-k_cartesian*xe-b_cartesian*xde);
         all_f_attractor=[all_f_attractor equal_F];
-        
-        
+               
      xdetjia=-J67*target_joint_velocity+v_filt+x_t1dd*dt;  %%% 
 
      
      v_filt=xdetjia+J67*target_joint_velocity_next;
      rate_xdetjia=[rate_xdetjia xdetjia];
      rate_target=[rate_target J67*target_joint_velocity_next];
-     att_7_joint_v=pinv(Jac)*[v_filt(1:3); zeros(3,1)];
-%     att_7_joint_v=pinv(Jac)*v_filt;
-    all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
+%     att_7_joint_v=pinv(Jac)*[v_filt(1:3); zeros(3,1)];   %末端姿态锁死
+     att_7_joint_v=J_pinv*v_filt(1:3);   %末端姿态放开
+
+%     all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
     % add attandance control
     
-%     safe_input7=q_control_dot;
-    safe_input7=att_7_joint_v;
+    %% 零空间优化
+    if ZSO_ENABLE
+        [ qd_op ] = zeroSpaceOptimize_v3( this_p ,Jac, pose );
+        all_qd_op = [all_qd_op qd_op];
+        att_7_joint_v = att_7_joint_v + qd_op;
+    end
+    
+   all_att_7_joint_v=[all_att_7_joint_v att_7_joint_v];
      %% SAFE  限幅
+     %     safe_input7=q_control_dot;
+    safe_input7=att_7_joint_v;
     future_pos_7=this_p'+safe_input7' * dt;
     for each_joint = 1:7
         if (future_pos_7(each_joint) <= qmin(each_joint)) || (future_pos_7(each_joint) >= qmax(each_joint))
@@ -985,7 +1016,7 @@ return
 %% Save Data [  先改文件名！ ]
 
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = '-v66-加导纳-加IMU-计算斥力-锁死末端-完整';
+TestNum = '-v72--加导纳-加IMU-计算斥力-零空间优化-完整（斥力反应不明显）';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
@@ -1043,10 +1074,10 @@ for  ii = 1:totalLen
     red = [255 , 0 , 0];
     eul = [ 0 , 0 , 0];
     
-%     %碰撞监测
-%     tic
-%     [isColliding,separationDist,witnessPts] = checkCollision(kukaiiwa,q,obsMeshCell,'IgnoreSelfCollision','on');
-%     toc
+    %     %碰撞监测
+    %     tic
+    %     [isColliding,separationDist,witnessPts] = checkCollision(kukaiiwa,q,obsMeshCell,'IgnoreSelfCollision','on');
+    %     toc
     
     show(kukaiiwa, q,'Frames','off' );
     hold on
@@ -1071,13 +1102,13 @@ for  ii = 1:totalLen
         hold on
     end  
 
-%     kuka_color = [240 153 80];    %为kuka选择喜欢的颜色
-%     plot3(  joint_cart(1,1:7) ,  joint_cart(2,1:7) , joint_cart(3,1:7) ,'o-','color',kuka_color/255,'Linewidth',3);   %绘制KUKA机器人
-%     hold on 
-%     grid on
+    %     kuka_color = [240 153 80];    %为kuka选择喜欢的颜色
+    %     plot3(  joint_cart(1,1:7) ,  joint_cart(2,1:7) , joint_cart(3,1:7) ,'o-','color',kuka_color/255,'Linewidth',3);   %绘制KUKA机器人
+    %     hold on 
+    %     grid on
 
-%     metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
-%     plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',3);   %绘制重物
+    %     metal_color = [00 51 00];      %为金属重物选择喜欢的颜色
+    %     plot3(  joint_cart(1,7:8) ,  joint_cart(2,7:8) , joint_cart(3,7:8) ,'-','color',metal_color/255,'Linewidth',3);   %绘制重物
     
     %重物
     centerPoint = (T(1:3,4,7) + [ 0; 0 ; -0.08]) +   Pmass_wf/2 ;

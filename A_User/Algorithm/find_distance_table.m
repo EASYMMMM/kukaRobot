@@ -14,15 +14,15 @@ else
 end
 
 size=cell2mat(myspace(obs,2));
-% size(1)=size(1)/5;
-% size(2)=size(2)/5;
-% size(3)=size(2)/5;
-% expand=0.1;
+size(1)=size(1)/2;
+size(2)=size(2)/2;
+size(3)=size(2)/2;
+expand=0.1;
 
-size(1)=0;
-size(2)=0;
-size(3)=0;
-expand=0;
+% size(1)=0;
+% size(2)=0;
+% size(3)=0;
+% expand=0;
 
 expansion=expand*ones(1,3);
 size=size+expansion;

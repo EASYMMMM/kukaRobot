@@ -39,3 +39,27 @@ for i = 1:7
     legend('导纳控制器输出', '比例控制器输入')
     
 end
+
+
+a = 10;b=2;c=-50;d = 0;
+x = linspace(1,100);  
+y = a./(1+exp(-b.* (x + c))) + d;
+
+
+tic
+ % Set up fittype and options.
+myft = fittype( ['a/(1+exp(-b* (x + ', num2str(c), '))) + d'], 'independent', 'x', 'dependent', 'y' );
+opts = fitoptions( 'Method', 'NonlinearLeastSquares' );
+opts.Display = 'Off';
+opts.StartPoint = [0, 0, -50, 0];
+% Fit model to data.
+[fitresult, gof] = fit( x', y', myft );
+toc
+plot(fitresult,x,y)
+plot(x,y)
+fitresult.a
+
+
+
+
+

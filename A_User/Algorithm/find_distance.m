@@ -15,8 +15,8 @@ end
 
 size=cell2mat(myspace(obs,2));
 
-size(1)=size(1)/5;
-size(2)=size(2)/5;
+size(1)=size(1)/2;
+size(2)=size(2)/2;
 expand=0.1;
 
 % size(1)=0;
