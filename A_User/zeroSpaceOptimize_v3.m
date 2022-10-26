@@ -16,7 +16,7 @@ function [ qd_op ] = zeroSpaceOptimize_v3( q , J , T  )
     %   额外优化关节速度设定为 
     %    danger_q(i) = (( abs(q(i)) - qmax(i)*qSafe )/qmax(i)*(1-qSafe) + Base)*k; 
     qSafe = 0.6;               %安全阈值,超过该值 进行优化。 
-    k     =  (20*pi/180) * 2 ;     %期望的“标准优化速度”（优化力度=1时）为20度/s 可调整
+    k     =  (10*pi/180) * 2 ;     %期望的“标准优化速度”（优化力度=1时）为20度/s 可调整
     % ============================================
     
     Jv = J(1:3,:); %速度雅各比
@@ -30,7 +30,7 @@ function [ qd_op ] = zeroSpaceOptimize_v3( q , J , T  )
     P = [ 0 ; 0 ; 0 ; 0 ; 0 ; 0 ; 0 ];
     % 代价函数为
     %   P(q) = | q^2 (q >= qmax*qSafe )
-    %          | 0   (q <  qmax*qSafe )
+    %              | 0   (q <  qmax*qSafe )
     
     % 对于关节1，让其始终对准末端位置
     eef = T(1:3,4);

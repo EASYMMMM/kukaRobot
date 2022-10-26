@@ -14,7 +14,7 @@ timex = 5; %运行时间系数
 
 Ts = 0.010;
 
-Kp_joint = eye(7)*0;    %比例控制系数3
+Kp_joint = eye(7)*10;    %比例控制系数3
 k0 =  0.00005;            %障碍物斥力系数 
 FUTURE=3;
 
@@ -23,7 +23,7 @@ FUTURE=3;
 
 
 EMG_ENABLE = 0 ; %EMG在本程序中是否开启： 0为关闭，1为开启
-IMU_ENABLE = 1;  %IMU在本程序中是否开启： 0为关闭，1为开启
+IMU_ENABLE = 0;  %IMU在本程序中是否开启： 0为关闭，1为开启
 LABEL_ENABLE= 0; %是否在实时程序中进行打标签：0为关闭，1为开启；前提是IMU_ENABLE = 1;
 ZSO_ENABLE = 1;  %是否开启零空间优化
 
@@ -146,11 +146,14 @@ pause(1);
 disp('Moving first joint of the robot using a sinusoidal function')
     
 %% high level initialize 
+% RL2m3m3_maze_big_v0 走内圈
+% RL2m3m3_maze_big 走中圈
+
 CHANGE=0;  %地图没发生变化  初始
 now_pos_3=[-0.125 -0.675 0.2]';  %机器人初始点
 % RL2m3m3_maze_big_v0这个是规划走内圈；
 % RL2m3m3_maze_big这个是规划走外圈；
-[lastq,lastR,total_act ,way_points ,which_state_now, myspace, cartis_obs ,OBSTACLE]= RL2m3m3_maze_big_v0(now_pos_3,0,CHANGE,0,0,0,0,[]);
+[lastq,lastR,total_act ,way_points ,which_state_now, myspace, cartis_obs ,OBSTACLE]= RL2m3m3_maze_big(now_pos_3,0,CHANGE,0,0,0,0,[]);
 last_state=which_state_now;
 last_space=myspace;
 last_q=lastq;
@@ -393,7 +396,7 @@ future_obs_table = ...
     [49, 38];...
     [117, 106];...
     [42, 43];...
-    [86, 87];};
+    [86, 87,88];};
 
 obs_index = 1;
 while OVER == 0
@@ -402,7 +405,7 @@ while OVER == 0
     start_position=end_effector_p;
 %     start_position=target_end_effector_p;
     %更新轨迹
-    [lastq,lastR,total_act way_points which_state_now myspace cartis_obs OBSTACLE]= RL2m3m3_maze_big_v0(start_position,last_space,CHANGE,last_q,last_R,0,0,OBSTACLE, cartis_obs);
+    [lastq,lastR,total_act way_points which_state_now myspace cartis_obs OBSTACLE]= RL2m3m3_maze_big(start_position,last_space,CHANGE,last_q,last_R,0,0,OBSTACLE, cartis_obs);
     
     % 确定FUTURE
     FUTURE = 3;
@@ -605,19 +608,26 @@ J_dx_dq = Jac(1:3,:);
 my_torque=cell2mat(my_t).';
 new_torque=[new_torque; cell2mat(my_t);];
 
-Twist=pinv(Jac.')*my_torque;
+% 原代码
+% Twist=pinv(Jac.')*my_torque;
+% 
+% F_contact=1*pinv(J_dx_dq.')*my_torque;
 
-F_contact=1*pinv(J_dx_dq.')*my_torque;
+% 2022年10月26日 更改测试
+Twist=Jac*my_torque;
+F_contact=J_dx_dq*my_torque;
+%end
+
 all_F_contact=[all_F_contact F_contact];       
 
     
 F_filtered1 = kalmanx(F_contact(1));
 F_filtered2 = kalmany(F_contact(2));
 F_filtered3 = kalmanz(F_contact(3));
-
-if F_filtered3 < -3
-    F_filtered3 = -3;
-end
+% 
+% if F_filtered3 < -3
+%     F_filtered3 = -3;
+% end
 
 twist4=kalman1(Twist(4));
 twist5=kalman1(Twist(5));
@@ -765,7 +775,7 @@ all_filter_twist=[all_filter_twist filter_twist];
       inform3=[information1; information2; information3;];
       all_inform_obs=[all_inform_obs; inform3;];    
     
-%       q0_dot=zeros(7,1); %关节速度，斥力相关
+      q0_dot=zeros(7,1); %关节速度，斥力相关，这就是斥力，在这里将其设为0即可关闭全部斥力
       F=J*q0_dot;  %转换为末端受力
       all_F=[all_F F];
       
@@ -1016,7 +1026,7 @@ return
 %% Save Data [  先改文件名！ ]
 
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = '-v72--加导纳-加IMU-计算斥力-零空间优化-完整（斥力反应不明显）';
+TestNum = '-v78--全关闭，测试导纳控制器跟踪效果--';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 

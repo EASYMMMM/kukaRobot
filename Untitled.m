@@ -3,8 +3,8 @@ for i = 1:3
     figure(i);
     plot(all_end_effector_p(i,: )); hold on;
     plot(all_target_x3(i,: ));
-    plot(all_point3(i,: ));
-    legend('real-x', 'plan-x','all-point3')
+%     plot(all_point3(i,: ));
+    legend('real-x', 'plan-x')
     ylim([0,0.6])
 end
 
@@ -14,7 +14,7 @@ for i = 1:3
     plot(all_v_control(i,: ));
     
     legend('real-v', 'plan-v')
-    title('加导纳，不算斥力，笛卡尔空间下，rate\_target(i,: ) + rate\_xdetjia(i,: )与all\_v\_control(i,: )')
+%     title('加导纳，不算斥力，笛卡尔空间下，rate\_target(i,: ) + rate\_xdetjia(i,: )与all\_v\_control(i,: )')
 end
 
 
