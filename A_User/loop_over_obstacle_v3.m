@@ -14,7 +14,7 @@ timex = 5; %运行时间系数
 
 Ts = 0.010;
 
-Kp_joint = eye(7)*10;    %比例控制系数3
+Kp_joint = eye(7)*0;    %比例控制系数3
 k0 =  0.00005;            %障碍物斥力系数 
 FUTURE=3;
 
@@ -1026,7 +1026,7 @@ return
 %% Save Data [  先改文件名！ ]
 
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = '-v78--全关闭，测试导纳控制器跟踪效果--';
+TestNum = '-v80--全关闭,kp=0，测试导纳控制器跟踪效果--';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 
