@@ -7,6 +7,8 @@
 % 2022年8月30日 添加EMG控制的变导纳
 % 2022年10月      添加零空间优化
 % 2022年10月      更改Ts为控制周期平均耗时
+% 2022年11月3日      加入GPR_v1
+% 2022年11月17日    加入每一段障碍物的分割
 
 close all;clear;clc;
 warning('off')
@@ -422,6 +424,8 @@ future_obs_table = ...
     [86, 87,88];};
 
 obs_index = 1;
+data_index = 0;
+all_obs_data_index = []; % 用来记录每一次到达规划结束位置的数据的索引，方便分割数据
 while OVER == 0
     if GPR_ENABLE
         high_loop=high_loop+1;
@@ -565,7 +569,7 @@ while OVER == 0
     loop_end_effector_p=[];temp_state_label=[];temp_hand=[]; % reloading`
 %% 底层循环 完成FUTURE个路径点
 for i=1:size(points_dot3,2)*2  
-
+    data_index = data_index + 1;
     if IMU_ENABLE
         %读取一帧IMU数据 
          [imu1_data, imu2_data, imu3_data ,flag] = IMU_ReadOneFrame(t_server_IMU);
@@ -616,7 +620,8 @@ for i=1:size(points_dot3,2)*2
     
     if real_point >= size(points_dot3,2)
         real_point = size(points_dot3,2);
-        obs_index = obs_index + 1;
+        all_obs_data_index = [all_obs_data_index; [obs_index data_index]];
+        obs_index = obs_index + 1;        
     end
     
     % 外力触发 强行改变路径    
@@ -1137,7 +1142,7 @@ return
 %% Save Data [  先改文件名！ ]
 
 % 改 ↓↓↓↓ ↓↓↓↓
-TestNum = '-v85--新功能采数据3-';
+TestNum = '-v85--新功能采数据6-障碍物高度改变';
 dataFileName = ['HRC-Test-',date, TestNum,'.mat'];
 save(['C:\MMMLY\KUKA_Matlab_client\A_User\Data\HRC调参\',dataFileName])
 

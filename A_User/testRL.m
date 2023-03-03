@@ -1,7 +1,8 @@
 clc;clear;
 CHANGE=0;  %地图没发生变化  初始
 now_pos_3=[-0.125 -0.675 0.2]';  %机器人初始点
-[lastq,lastR,total_act ,way_points ,which_state_now, myspace, cartis_obs ,OBSTACLE]= RL2m3m3_maze_big_v0(now_pos_3,0,CHANGE,0,0,0,0,[]);
+start_position = now_pos_3;
+[lastq,lastR,total_act ,way_points ,which_state_now, myspace, cartis_obs ,OBSTACLE]= RL2m3m3_maze_big(now_pos_3,0,CHANGE,0,0,0,0,[]);
 
 [space cartis_obs]=get_init_big_maze_v1(2221);
 all_space=cell2mat(space(:,3:4));

@@ -34,6 +34,7 @@ if CHANGE == 0
     MAZE=2221;  %地图种子  左2 中2 右2
 %     [space cartis_obs]=get_init_space_maze(MAZE);
     [space cartis_obs]=get_init_big_maze_v1(2221); %v1是新地图
+    disp('hhhhhhhhhhhhh')
 %     all_space=cell2mat(space(:,3:4));
 %     figure;
 %     for node = 1:size(space,1)
@@ -272,7 +273,7 @@ if CHANGE == 0
             
             if(R(state,x1)==R_goal)
 %                 state=which_state;
-                y=randperm(3);
+                y=randperm(3); %%%实验相关可能需要修改
                 state=y(1);
                 %          pause(0.4);
             else

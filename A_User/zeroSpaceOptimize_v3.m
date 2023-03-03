@@ -1,4 +1,5 @@
-
+%% KUKA零空间优化
+% 【最终使用的版本】
 % 优化项为 I - pinv(Jv)*Jv
 
 function [ qd_op ] = zeroSpaceOptimize_v3( q , J , T  )
